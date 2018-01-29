@@ -1,0 +1,101 @@
+#!/usr/bin/env ruby
+# convert original dataset into dataset to be used for project
+require 'json'
+
+# Gets all manual annotations
+def get_man_annotations
+	tmp = Dir['original_dataset/man_anns/*'].select { |n| /\d+/.match(n) }
+	annotations = []
+	tmp.each { |a| annotations.concat(Dir["#{a}/*"].select { |n| /\d+/.match(n) } ) }
+	annotations
+end
+
+def get_doc_from_annotation(annotation_dir)
+	split = annotation_dir.split('/')	[2,3]
+	File.read("original_dataset/docs/#{split[0]}/#{split[1]}")
+end
+
+def get_types_from_annotation(annotation, type)
+	File.readlines("#{annotation}/gateman.mpqa.lre.3.0").select { |line| /#{type}/.match(line) }
+end
+
+def setup
+	# TODO: This
+end
+
+annotations = get_man_annotations
+mappings = {
+	'expressive-subjectivity' => :opinion,
+	'agent' => :agent,
+	'eTarget' => :target,
+	'polarity' => :sentiment # This is a subcategory of 'expressive-subjectivity'
+}
+seed = Random.new(1992) # To help sort which documents are dev and which are test
+
+annotations.each do |annotation|
+	frames_for_document = []
+	document = get_doc_from_annotation(annotation)
+	doc_name = annotation.split('/')[2,3]
+	doc_name = "#{doc_name[0]}/#{doc_name[1]}"
+
+	es_events = get_types_from_annotation(annotation, 'expressive-subjectivity')
+	es_events.each do |ese|
+		frame = {}
+		frame[:name] = doc_name
+
+		# Grab the full opinion from the document
+		opinion_idxs = ese.scan(/\d+,\d+/)[0].split(',')
+		opinion_idxs[0] = opinion_idxs[0].to_i
+		opinion_idxs[1] = opinion_idxs[1].to_i
+		frame[:opinion] = document[opinion_idxs[0]...opinion_idxs[1]]
+
+		# Sentiment (positive, negative, both, neutral, or none)
+		frame[:sentiment] = ese.scan(/polarity="[a-z]+"/)
+		frame[:sentiment].size == 0 ? frame[:sentiment] = :none : frame[:sentiment] = frame[:sentiment][0].scan(/"[a-z]+"/)[0].gsub('"','').to_sym
+
+		# agent
+		# NOTE: Through this method of finding an agent in the manual annotations of every opinion, there are still quite
+		# a few frames that do not contain agents. I think there is a coreference resolution issue at work here, and so
+		# will need to pick at this some more
+		agent_ref = ese.scan(/nested-source="[a-z,\d]+"/)[0].scan(/"[a-z,\d]+"/)[0].gsub('"', '')
+		agent_ref.split(',').size == 1 ? agent_ref = agent_ref.to_sym : agent_ref = agent_ref.split(',')[-1].to_sym
+		if agent_ref == :w
+			frame[:agent] = :w
+		elsif agent_ref == :implicit
+			frame[:agent] = :implicit
+		else
+			get_types_from_annotation(annotation, 'agent').select { |l| /id=\"#{agent_ref}\"/.match(l) || /nested-source="[a-z,\d]*#{agent_ref}[a-z,\d]*"/.match(l) }.each do |a|
+				idxs = a.scan(/\d+,\d+/)[0].split(',')
+				idxs[0] = idxs[0].to_i
+				idxs[1] = idxs[1].to_i
+
+				if idxs[0] >= opinion_idxs[0] && idxs[1] <= opinion_idxs[1]
+					frame[:agent] = document[idxs[0]...idxs[1]]
+					break
+				end
+			end
+		end
+
+		# puts frame[:agent].nil?
+
+
+		# target
+		# TODO: Use entity target where available, otherwise rely on span target
+		target_frame_ref = ese.scan(/targetFrame-link="[a-z\d]+"/)[0].gsub('targetFrame-link=','').gsub('"','')
+		target_frame_ref = get_types_from_annotation(annotation, 'targetFrame').select { |l| l.include?("id=\"#{target_frame_ref}\"") }[0]
+		tf = target_frame_ref.scan(/newETarget-link="[a-z\d]+"/)
+
+		if tf.size > 0
+			eTarget_ref = tf[0].gsub('newETarget-link=', '').gsub('"', '')
+			if /e\d+/.match(eTarget_ref)
+				eTarget_idxs = get_types_from_annotation(annotation, 'eTarget').select { |l| /id="#{eTarget_ref}"/.match(l) }[0].scan(/\d+,\d+/)[0].split(',')
+				frame[:target] = document[eTarget_idxs[0].to_i...eTarget_idxs[1].to_i]
+			end
+		end
+
+		puts frame[:target].nil?
+
+
+		frames_for_document << frame
+	end
+end
