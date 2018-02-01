@@ -19,7 +19,7 @@ class TopTur < Thor
 	@@settings = nil
 
 	desc 'convert', 'Convert old dataset to style required for this project'
-	option :seed, :type => :numeric
+	option :seed, :type => :numeric, :aliases => :s
 	def convert
 		setup
 		options[:seed].nil? ? seed = 1992 : seed = options[:seed]
@@ -112,10 +112,27 @@ class TopTur < Thor
 			puts 'done.'
 		end
 
-
+		@@settings[:separated] = true
+		save_settings
 	end
 
-	desc 'train', 'Train the system to '
+	desc 'train', 'Train the system on current development texts'
+	def train
+		setup
+
+		unless @@settings[:separated]
+			STDERR.puts 'Dataset not converted! Please run `./toptur convert` before attempting to train'
+			exit(1)
+		end
+	end
+
+	desc 'test', 'Test the system using the current test set'
+	def test
+	end
+
+	desc 'extract [FILE1] ...', 'Extract opinions from the individual file or files and print them in a readable format'
+	def extract
+	end
 
 	private
 
@@ -126,16 +143,17 @@ class TopTur < Thor
 		if File.exist?(SETTINGS_FILE_NAME)
 			@@settings = JSON.parse(File.read(SETTINGS_FILE_NAME))
 			@@settings = Hash[@@settings.map { |k, v| [k.to_sym, v] }]
-			puts @@settings.inspect
 		else
 			@@settings = {
 				:setup => true,
+				:separated => false,
 				:train => false
 			}
 			save_settings
 		end
 	end
 
+	## Save the settings to the file
 	def save_settings
 		File.open(SETTINGS_FILE_NAME, 'w') { |f| f.write(@@settings.to_json) }
 	end
