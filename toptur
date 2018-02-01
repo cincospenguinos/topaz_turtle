@@ -1,0 +1,163 @@
+#!/usr/bin/env ruby
+if `gem list -i thor`.include?('false')
+	print 'Installing Thor...'
+	`gem install --user-install thor`
+	puts 'done.'
+end
+
+if `gem list -i json`.include?('false')
+	print 'Installing JSON gem...'
+	`gem install --user-install json`
+	puts 'done.'
+end
+
+require 'thor'
+require 'json'
+
+class TopTur < Thor
+
+	@@settings = nil
+
+	desc 'convert', 'Convert old dataset to style required for this project'
+	option :seed, :type => :numeric
+	def convert
+		setup
+		options[:seed].nil? ? seed = 1992 : seed = options[:seed]
+
+		puts 'Converting dataset...'
+		Dir.chdir('dataset') do
+			Dir.exist?('tmp') ? `rm -rf tmp && mkdir tmp` : Dir.mkdir('tmp')
+			annotations = get_man_annotations
+
+			annotations.each do |annotation|
+				frames_for_document = []
+				document = get_doc_from_annotation(annotation)
+				doc_name = annotation.split('/')[2,3]
+				doc_name = doc_name[1]
+				doc_path = "#{doc_name[0]}/#{doc_name[1]}"
+
+				es_events = get_types_from_annotation(annotation, 'expressive-subjectivity')
+				es_events.each do |ese|
+					frame = {}
+					frame[:name] = doc_name
+
+					# Grab the full opinion from the document
+					opinion_idxs = ese.scan(/\d+,\d+/)[0].split(',')
+					opinion_idxs[0] = opinion_idxs[0].to_i
+					opinion_idxs[1] = opinion_idxs[1].to_i
+					frame[:opinion] = document[opinion_idxs[0]...opinion_idxs[1]]
+
+					# Sentiment (positive, negative, both, neutral, or none)
+					frame[:sentiment] = ese.scan(/polarity="[a-z]+"/)
+					frame[:sentiment].size == 0 ? frame[:sentiment] = :none : frame[:sentiment] = frame[:sentiment][0].scan(/"[a-z]+"/)[0].gsub('"','').to_sym
+
+					# agent
+					# NOTE: Through this method of finding an agent in the manual annotations of every opinion, there are still quite
+					# a few frames that do not contain agents. I think there is a coreference resolution issue at work here, and so
+					# will need to pick at this some more
+					agent_ref = ese.scan(/nested-source="[a-z,\d]+"/)[0].scan(/"[a-z,\d]+"/)[0].gsub('"', '')
+					agent_ref.split(',').size == 1 ? agent_ref = agent_ref.to_sym : agent_ref = agent_ref.split(',')[-1].to_sym
+					if agent_ref == :w
+						frame[:agent] = :w
+					elsif agent_ref == :implicit
+						frame[:agent] = :implicit
+					else
+						get_types_from_annotation(annotation, 'agent').select { |l| /id=\"#{agent_ref}\"/.match(l) || /nested-source="[a-z,\d]*#{agent_ref}[a-z,\d]*"/.match(l) }.each do |a|
+							idxs = a.scan(/\d+,\d+/)[0].split(',')
+							idxs[0] = idxs[0].to_i
+							idxs[1] = idxs[1].to_i
+
+							if idxs[0] >= opinion_idxs[0] && idxs[1] <= opinion_idxs[1]
+								frame[:agent] = document[idxs[0]...idxs[1]]
+								break
+							end
+						end
+					end
+
+					# target
+					# TODO: Use entity target where available, otherwise rely on span target
+					target_frame_ref = ese.scan(/targetFrame-link="[a-z\d]+"/)[0].gsub('targetFrame-link=','').gsub('"','')
+					target_frame_ref = get_types_from_annotation(annotation, 'targetFrame').select { |l| l.include?("id=\"#{target_frame_ref}\"") }[0]
+					tf = target_frame_ref.scan(/newETarget-link="[a-z\d]+"/)
+
+					if tf.size > 0
+						eTarget_ref = tf[0].gsub('newETarget-link=', '').gsub('"', '')
+						if /e\d+/.match(eTarget_ref)
+							eTarget_idxs = get_types_from_annotation(annotation, 'eTarget').select { |l| /id="#{eTarget_ref}"/.match(l) }[0].scan(/\d+,\d+/)[0].split(',')
+							frame[:target] = document[eTarget_idxs[0].to_i...eTarget_idxs[1].to_i]
+						else
+							# no target found
+						end
+					end
+
+					frames_for_document << frame
+				end
+
+				Dir.chdir('tmp') { File.open(doc_name, 'w+') { |file| file.write(frames_for_document.to_json) } }
+			end
+
+			puts "Mixing docs with seed #{seed}..."
+			Dir.exist?('dev') ? `rm -rf dev/ && mkdir dev` : Dir.mkdir('dev')
+			Dir.exist?('test') ? `rm -rf test/ && mkdir test` : Dir.mkdir('test')
+
+			randomizer = Random.new(seed)
+
+			while Dir['test/*'].size < 3 && Dir['tmp/*'].size > 0
+				file = Dir['tmp/*'][0]
+				randomizer.rand < 0.5 ? `mv #{file} dev/` : `mv #{file} test/`
+			end
+
+			Dir['tmp/*'].each { |f| `mv #{f} dev/` }
+			`rm -rf tmp`
+			puts 'done.'
+		end
+
+
+	end
+
+	desc 'train', 'Train the system to '
+
+	private
+
+	SETTINGS_FILE_NAME = '.toptur_settings.json'
+
+	## Sets up local data files and things to help out
+	def setup
+		if File.exist?(SETTINGS_FILE_NAME)
+			@@settings = JSON.parse(File.read(SETTINGS_FILE_NAME))
+			@@settings = Hash[@@settings.map { |k, v| [k.to_sym, v] }]
+			puts @@settings.inspect
+		else
+			@@settings = {
+				:setup => true,
+				:train => false
+			}
+			save_settings
+		end
+	end
+
+	def save_settings
+		File.open(SETTINGS_FILE_NAME, 'w') { |f| f.write(@@settings.to_json) }
+	end
+
+	## Gets all manual annotations
+	def get_man_annotations
+		tmp = Dir['original_dataset/man_anns/*'].select { |n| /\d+/.match(n) }
+		annotations = []
+		tmp.each { |a| annotations.concat(Dir["#{a}/*"].select { |n| /\d+/.match(n) } ) }
+		annotations
+	end
+
+	## Gets a doc given the annotation directory
+	def get_doc_from_annotation(annotation_dir)
+		split = annotation_dir.split('/')	[2,3]
+		File.read("original_dataset/docs/#{split[0]}/#{split[1]}")
+	end
+
+	## Gets the types of annotations given a type and such
+	def get_types_from_annotation(annotation, type)
+		File.readlines("#{annotation}/gateman.mpqa.lre.3.0").select { |line| /#{type}/.match(line) }
+	end
+end
+
+TopTur.start(ARGV)

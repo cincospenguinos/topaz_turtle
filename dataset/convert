@@ -90,12 +90,12 @@ annotations.each do |annotation|
 			if /e\d+/.match(eTarget_ref)
 				eTarget_idxs = get_types_from_annotation(annotation, 'eTarget').select { |l| /id="#{eTarget_ref}"/.match(l) }[0].scan(/\d+,\d+/)[0].split(',')
 				frame[:target] = document[eTarget_idxs[0].to_i...eTarget_idxs[1].to_i]
+			else
+				# no target found
 			end
 		end
-
-		puts frame[:target].nil?
-
 
 		frames_for_document << frame
 	end
 end
+
