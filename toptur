@@ -128,10 +128,22 @@ class TopTur < Thor
 
 	desc 'test', 'Test the system using the current test set'
 	def test
+		setup
+
+		unless @@settings[:separated]
+			STDERR.puts 'Dataset not converted! Please run `./toptur convert` before attempting to test'
+			exit(1)
+		end
 	end
 
 	desc 'extract [FILE1] ...', 'Extract opinions from the individual file or files and print them in a readable format'
 	def extract
+		setup
+
+		unless @@settings[:separated]
+			STDERR.puts 'Dataset not converted! Please run `./toptur convert` before attempting to train'
+			exit(1)
+		end
 	end
 
 	private
