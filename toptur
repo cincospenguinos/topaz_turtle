@@ -16,6 +16,8 @@ require 'json'
 
 class TopTur < Thor
 
+	JAR_NAME = 'target/topaz_turtle-1.0-SNAPSHOT.jar'
+
 	@@settings = nil
 
 	desc 'convert', 'Convert old dataset to style required for this project'
@@ -124,6 +126,8 @@ class TopTur < Thor
 			STDERR.puts 'Dataset not converted! Please run `./toptur convert` before attempting to train'
 			exit(1)
 		end
+
+		exec("java -jar #{JAR_NAME} train")
 	end
 
 	desc 'test', 'Test the system using the current test set'
@@ -152,6 +156,7 @@ class TopTur < Thor
 
 	## Sets up local data files and things to help out
 	def setup
+		# Setup the local settings file
 		if File.exist?(SETTINGS_FILE_NAME)
 			@@settings = JSON.parse(File.read(SETTINGS_FILE_NAME))
 			@@settings = Hash[@@settings.map { |k, v| [k.to_sym, v] }]
@@ -163,6 +168,13 @@ class TopTur < Thor
 			}
 			save_settings
 		end
+
+		# Package the jar using Maven
+		unless `mvn package`
+			puts 'Build failed! Check build.log for details'
+			exit(1)
+		end
+
 	end
 
 	## Save the settings to the file
