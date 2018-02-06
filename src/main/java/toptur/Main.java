@@ -29,6 +29,9 @@ public class Main {
         if (task.equals("train")) {
             ArrayList<Document> devDocs = getAllDocsFrom(DEV_DOCS);
 
+            for (Document d : devDocs)
+                System.out.println(d);
+
         } else if (task.equals("test")) {
             ArrayList<Document> testDocs = getAllDocsFrom(TEST_DOCS);
 

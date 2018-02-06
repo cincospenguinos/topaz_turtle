@@ -34,18 +34,18 @@ public class Document {
         builder.append("\n\n");
 
         for (Opinion o : goldStandardOpinions) {
-            builder.append("Opinion\t");
+            builder.append("\tOpinion\t");
             builder.append(o.opinion);
-            builder.append("\nAgent\t");
+            builder.append("\n\tAgent\t");
             builder.append(o.agent);
-            builder.append("\nTarget\t");
+            builder.append("\n\tTarget\t");
             builder.append(o.target);
-            builder.append("\nSentiment\t");
+            builder.append("\n\tSentiment\t");
             builder.append(o.sentiment);
             builder.append("\n\n");
         }
 
-        return builder.toString(); // TODO: This
+        return builder.toString();
     }
 
     public static Document fromJson(File jsonFile) {
