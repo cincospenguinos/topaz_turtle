@@ -1,0 +1,69 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{listings}
+
+\title{Information Extraction Proposal---Topaz Turtle}
+\author{Andre LaFleur}
+\date{22 Jan 2018}
+
+\begin{document}
+	\maketitle
+
+    \section{Introduction}
+
+    Newspapers are one of the most common means of acquiring information about current events. Their purpose is to inform readers of events and people of major concern in a fair and straightforward manner. In spite of this purpose, many newspapers publish opinions in the same documents intended to inform, both from the authors of the articles themselves and from people the documents mention. As news articles continue to be a major source of information for many people, opinions that slip through such articles will continue to be propagated as pieces of information worthy for the public to consider. A system to extract these opinions and label them as such would be valuable to the average reader. Such a system is my intended project this semester.
+
+    \section{Task}
+
+    I want to build an information extraction system that will read through a variety of news articles and extract opinions from them. I want it to be able to extract the agent (or opinion holder,) the target of the opinion, and whether the opinion is positive or negative (that is, if it's speaking positively of the target or negatively of the target.)
+
+    \section{Corpus}
+
+    I will be using the MPQA Opinion Corpus version 3.0. This corpus has been manually annotated. I'm using version 3 because earlier versions did not have an entity target annotation, but instead just a span annotation.
+
+    For more information about the MPQA Opinion Corpus, please refer to the following webpages:\\ \\
+    \verb|http://mpqa.cs.pitt.edu/corpora/mpqa_corpus/|\\
+    \verb|http://mpqa.cs.pitt.edu/corpora/mpqa_corpus/mpqa_corpus_3_0/mpqa_3_0_readme.txt|
+
+    I will not use the MPQA corpus as it is provided on the website. To better fit my problem, I'll be converting the data from the format they provide to a format that will work better with my system. Basically I'll have a directory full of answers for each document in either YAML or JSON format (depending on which library is easiest to work with) that list out the three slots I have and their corresponding strings. Below is an example:\\
+    \begin{lstlisting}
+	[
+    		{
+			agent: 'Imam',
+			target: 'Rushdie',
+			sentiment: 'negative'
+		},
+		{
+			agent: 'writer',
+			target: 'film',
+			sentiment: positive
+		}
+	]
+    \end{lstlisting}
+
+    All of the gold standards will be converted, however, directly from the hand annotated data within the corpus. I will not be providing any extra annotations, nor will I modify a given annotation from MPQA to fit this annotation. The strings that were manually annotated in the corpus will remain unchanged when placed in their new format.
+
+    \section{Evaluation}
+
+    A randomized collection of documents will be set aside, along with their answer keys, to act as the test set for the system. This set will not be looked at by myself, and will not be part of the development of the system. It will be used solely for the purpose of evaluating the system and comparing various iterations of the project.
+    F-score will be the main method of evaluating the information extraction system. The F-score will be calculated for each of the three different slots (agent, target, and polarity) for each opinion extracted. The system can then be considered for each of the different slots that it manages to capture.
+    F-score will also be used to evaluate the system as a whole. Since a given document may have multiple opinions, and it is probable that the system will not capture every opinion or will capture statements that are not opinions, F-score can be used to evaluate the overall effectiveness of the system, measuring recall (how many correct opinions were captured out of how many were expected) and precision (of those captured, how many of those opinions were correct.)
+
+    \section{Interface}
+
+    The interface to this system will be a command line interface (CLI) on a Linux machine. A single executable will be provided that allows the user to run the following commands:
+
+    \begin{itemize}
+    	\item \textbf{train}--train the information extraction system and prime it for use. This command will need to be run before any other.
+        \item \textbf{test}--test the information extraction system using the gold standard test data.
+        \item \textbf{extract \textnormal{[document1] [document2] ...}}--extract information from the provided file or document. This will print out a list of all of the opinions discovered in the document, as well as the various slots included in the document itself.
+    \end{itemize}
+
+    % Here's some ideas on building the project:
+    %
+    % * Let's use bootstrapping to "learn" the best patterns that correspond to opinions, and then use
+    %   those to get opinions from a document.
+    % * When we extract a full opinion, we can extract features and use them to classify them as positive
+    %   or negative. We can use any machine learning algorithm we want for this.
+    % *
+\end{document}
