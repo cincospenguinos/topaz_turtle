@@ -9,7 +9,7 @@ import java.util.ArrayList;
  * Here's the usage:
  *
  *     args[0] -- what task we are going to do
- *     args[1] -- whatever input is needed
+ *     args[1+] -- whatever input is needed
  *
  * so
  */
@@ -29,8 +29,7 @@ public class Main {
         if (task.equals("train")) {
             ArrayList<Document> devDocs = getAllDocsFrom(DEV_DOCS);
 
-            for (Document d : devDocs)
-                System.out.println(d);
+
 
         } else if (task.equals("test")) {
             ArrayList<Document> testDocs = getAllDocsFrom(TEST_DOCS);

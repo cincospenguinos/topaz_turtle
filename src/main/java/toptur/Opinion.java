@@ -8,4 +8,5 @@ public class Opinion {
     public String agent;
     public String sentiment;
     public String target;
+    public String sentence;
 }

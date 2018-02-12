@@ -38,6 +38,10 @@ class TopTur < Thor
 				doc_name = doc_name[1]
 				doc_path = "#{doc_name[0]}/#{doc_name[1]}"
 
+				# Grab all the sentences
+				sentences = []
+				get_types_from_annotation(annotation, 'sentence').each { |line| sentences << line.scan(/\d+,\d+/)[0].split(',').map(&:to_i) }
+
 				es_events = get_types_from_annotation(annotation, 'expressive-subjectivity')
 				es_events.each do |ese|
 					frame = {}
@@ -91,6 +95,17 @@ class TopTur < Thor
 							# no target found
 						end
 					end
+
+					# sentence
+					# Now we need to include what sentence this comes from
+					sentences.each do |sentence_indexes|
+						if sentence_indexes[0] <= opinion_idxs[0] && sentence_indexes[1] >= opinion_idxs[1]
+							frame[:sentence] = document[sentence_indexes[0]...sentence_indexes[1]]
+							break
+						end
+					end
+
+					frame[:sentence] = nil unless frame[:sentence]
 
 					frames_for_document << frame
 				end
