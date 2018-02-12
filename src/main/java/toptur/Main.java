@@ -27,12 +27,13 @@ public class Main {
 
         String task = args[0].toLowerCase();
         if (task.equals("train")) {
-            ArrayList<Document> devDocs = getAllDocsFrom(DEV_DOCS);
+            ArrayList<NewsArticle> devDocs = getAllDocsFrom(DEV_DOCS);
 
-
+            for (NewsArticle d : devDocs)
+                System.out.println(d);
 
         } else if (task.equals("test")) {
-            ArrayList<Document> testDocs = getAllDocsFrom(TEST_DOCS);
+            ArrayList<NewsArticle> testDocs = getAllDocsFrom(TEST_DOCS);
 
         } else if (task.equals("extract")) {
             for (int i = 1; i < args.length; i++) {
@@ -46,8 +47,8 @@ public class Main {
         }
     }
 
-    private static ArrayList<Document> getAllDocsFrom(String path) {
-        ArrayList<Document> docs = new ArrayList<Document>();
+    private static ArrayList<NewsArticle> getAllDocsFrom(String path) {
+        ArrayList<NewsArticle> docs = new ArrayList<NewsArticle>();
 
         File folder = new File(path);
 
@@ -57,7 +58,7 @@ public class Main {
         }
 
         for(File f : folder.listFiles()) {
-            docs.add(Document.fromJson(f));
+            docs.add(NewsArticle.fromJson(f));
         }
 
         return docs;
