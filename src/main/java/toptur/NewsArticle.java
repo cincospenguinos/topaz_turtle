@@ -17,7 +17,6 @@ public class NewsArticle {
     private String fullText;
     private ArrayList<Opinion> extractedOpinions; // opinions found in the document
     private ArrayList<Opinion> goldStandardOpinions; // hand annotated opinions
-    private Opinion[] opinions;
 
     private NewsArticle(String name, String _fullText, Opinion[] goldStandards) {
         documentName = name;
@@ -106,11 +105,19 @@ public class NewsArticle {
         return fullText;
     }
 
-    public Opinion[] getOpinions() {
-        return opinions;
-    }
-
     public ArrayList<Opinion> getGoldStandardOpinions() {
         return goldStandardOpinions;
+    }
+
+    public void addExtractedOpinion(Opinion o) {
+        extractedOpinions.add(o);
+    }
+
+    public ArrayList<Opinion> getExtractedOpinions() {
+        return extractedOpinions;
+    }
+
+    public String getDocumentName() {
+        return documentName;
     }
 }

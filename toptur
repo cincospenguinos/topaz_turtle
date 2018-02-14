@@ -153,6 +153,8 @@ class TopTur < Thor
 			STDERR.puts 'Dataset not converted! Please run `./toptur convert` before attempting to test'
 			exit(1)
 		end
+
+		exec("java -jar #{JAR_NAME} test")
 	end
 
 	desc 'extract [FILE1] ...', 'Extract opinions from the individual file or files and print them in a readable format'
