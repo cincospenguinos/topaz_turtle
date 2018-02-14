@@ -168,6 +168,7 @@ class TopTur < Thor
 	private
 
 	SETTINGS_FILE_NAME = '.toptur_settings.json'
+	MODELS_DIRECTORY = '.liblinear_models'
 
 	## Sets up local data files and things to help out
 	def setup
@@ -182,6 +183,19 @@ class TopTur < Thor
 				:train => false
 			}
 			save_settings
+		end
+
+		# Setup liblinear
+		Dir.mkdir(MODELS_DIRECTORY) unless Dir.exist?(MODELS_DIRECTORY)
+
+		if `cd liblinear && make &> /dev/null`
+			`mv liblinear/train .`
+			`mv liblinear/predict .`
+			`mv train liblinear_train`
+			`mv predict liblinear_predict`
+		else
+			puts 'Could not make liblinear!'
+			exit 1
 		end
 
 		# Package the jar using Maven

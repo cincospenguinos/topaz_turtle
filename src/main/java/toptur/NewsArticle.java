@@ -85,4 +85,23 @@ public class NewsArticle {
 
         return new NewsArticle(jsonFile.getName(), fullTextBuilder.toString(), opinions); // TODO: This
     }
+
+    /**
+     * Checks if the sentence passed EXACTLY MATCHES a sentence with an opinion, as
+     * found in the gold standard opinion set.
+     *
+     * @param sentence
+     * @return
+     */
+    public boolean sentenceHasOpinion(String sentence) {
+        for (Opinion o : goldStandardOpinions)
+            if (o.sentence.equalsIgnoreCase(sentence))
+                return true;
+
+        return false;
+    }
+
+    public String getFullText() {
+        return fullText;
+    }
 }
