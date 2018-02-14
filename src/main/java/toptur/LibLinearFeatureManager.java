@@ -5,7 +5,7 @@ import java.util.TreeMap;
 
 public class LibLinearFeatureManager {
 
-    public enum LibLinearFeature { CONTAINS_UNIGRAM, CONTAINS_BIGRAM }
+    public enum LibLinearFeature { CONTAINS_UNIGRAM, OBJECTIVITY_OF_SENTENCE}
 
     private static volatile LibLinearFeatureManager instance;
 
