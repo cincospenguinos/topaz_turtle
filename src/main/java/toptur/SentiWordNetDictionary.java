@@ -24,23 +24,6 @@ public class SentiWordNetDictionary {
         }
     }
 
-    /**
-     * Returns 1 if it's subjective, -1 if it's objective, and 0 if the word has not been seen before.
-     *
-     * @param word - word to check
-     * @return int
-     */
-    public int isWordSubjective(String word) {
-        if (dictionary.containsKey(word)) {
-            if (dictionary.get(word).getObjectivity() < 0.5)
-                return 1;
-            else
-                return -1;
-        }
-
-        return 0;
-    }
-
     public double getObjectivityOf(String word) {
         if (dictionary.containsKey(word))
             return dictionary.get(word).getObjectivity();

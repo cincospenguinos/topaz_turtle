@@ -16,8 +16,6 @@ import java.util.*;
  *
  *     args[0] -- what task we are going to do
  *     args[1+] -- whatever input is needed
- *
- * so
  */
 public class Main {
 
@@ -31,7 +29,7 @@ public class Main {
 
     private static SentiWordNetDictionary sentiWordNetDictionary;
 
-    // TODO: Next goal: extract the specific opinion word(s)
+    // TODO: Next goal: extract the specific opinion word(s) from the sentence
 
     public static void main(String[] args) {
         if (args.length == 0)
@@ -53,27 +51,14 @@ public class Main {
             trainLibLinear(SENTENCES_TRAINING_FILE, SENTENCES_MODEL_FILE);
             testLibLinear(SENTENCES_TEST_FILE, SENTENCES_MODEL_FILE, "/dev/null");
 
-//            // Extract the opinions
 //            for (NewsArticle a : devArticles) {
-//                Document doc = new Document(a.getFullText());
-//
-//                for (Sentence s : doc.sentences()) {
-//                    if (sentenceContainsOpinion(s)) {
-//                        // TODO: Grab the opinion/target/agent/etc. from the sentence
-//
-//                        Opinion o = new Opinion();
-//                        o.sentence = s.toString();
-//                        a.addExtractedOpinion(o);
-//                    }
-//                }
+//                for (Opinion o : a.getGoldStandardOpinions())
+//                    System.out.println(o.opinion + "\t" + o.sentence);
 //            }
-//
-//            // Evaluate
-//            evaluateExtractedOpinions(devArticles);
 
         } else if (task.equals("test")) {
             ArrayList<NewsArticle> testArticles = getAllDocsFrom(TEST_DOCS);
-            createVectorFile(testArticles, SENTENCES_TEST_FILE);
+//            createVectorFile(testArticles, SENTENCES_TEST_FILE);
             testLibLinear(SENTENCES_TEST_FILE, SENTENCES_MODEL_FILE, "/dev/null");
 
             // Extract the opinions
@@ -82,13 +67,16 @@ public class Main {
 
                 for (Sentence s : doc.sentences()) {
                     if (sentenceContainsOpinion(s)) {
-                        // TODO: Grab the opinion/target/agent/etc. from the sentence
-
                         Opinion o = new Opinion();
                         o.sentence = s.toString();
+
+                        // TODO: Grab the opinion/target/agent/etc. from the sentence
+
                         a.addExtractedOpinion(o);
                     }
                 }
+
+
             }
 
             evaluateExtractedOpinions(testArticles);
@@ -155,15 +143,17 @@ public class Main {
 
                 // Creating the feature vectors
                 for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature.values()) {
+                    int id;
+
                     switch(feature) {
                         case CONTAINS_UNIGRAM:
                             for (String w : words) {
-                                int id = libLinearFeatureManager.getIdFor(feature, w);
+                                id = libLinearFeatureManager.getIdFor(feature, w);
                                 libLinearFeatureVector.put(id, true);
                             }
                             break;
                         case OBJECTIVITY_OF_SENTENCE:
-                            int id = libLinearFeatureManager.getIdFor(feature, true);
+                            id = libLinearFeatureManager.getIdFor(feature, true);
                             double objectivity = 0.0;
 
                             for (String w : words) {
@@ -173,6 +163,19 @@ public class Main {
                             objectivity /= words.size();
                             libLinearFeatureVector.put(id, objectivity);
 
+                            break;
+
+                        case HAS_WORD_RELATED_TO_OTHER_WORD:
+                            for (String w : words) {
+                                DataMuseWord[] dataMuseWords = DataMuse.getWordsRelatedTo(w);
+                                if (dataMuseWords == null)
+                                    continue;
+
+                                for (DataMuseWord dmw : dataMuseWords) {
+                                    id = libLinearFeatureManager.getIdFor(feature, dmw.word);
+                                    libLinearFeatureVector.put(id, true);
+                                }
+                            }
                             break;
                     }
                 }
