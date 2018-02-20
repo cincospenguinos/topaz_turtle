@@ -4,3 +4,7 @@
 dataset/dev/
 dataset/test/
 target/
+liblinear_*
+.liblinear_models/
+*.vector
+*.txt
