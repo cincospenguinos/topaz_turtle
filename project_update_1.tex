@@ -1,0 +1,68 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{listings}
+
+\title{Information Extraction Project Update 1---Topaz Turtle}
+\author{Andre LaFleur and Matthew Canova}
+\date{22 Jan 2018}
+
+\begin{document}
+	\maketitle
+
+
+ \section{Interface}
+
+    The interface to this system is a command line interface (CLI) on a Linux machine. From project root:
+    
+    \begin{itemize}
+    \item \textbf{./toptur convert} -- generate the initial dev and test data sets. This command will need to be run before any other.
+    	\item \textbf{./toptur train} -- train the information extraction system and prime it for use.         
+	\item \textbf{./toptur test} -- test the information extraction system using the gold standard test data.
+        \item \textbf{./toptur extract \textnormal{[document1] [document2] ...}} -- extract information from the provided file or document. This will print out a list of all of the opinions discovered in the document, as well as the various slots included in the document itself.
+    \end{itemize}
+    
+   
+    \section{Baseline 1}
+    
+    Our baseline currently handles all of the logistics of parsing the dev and test data for our classifiers. Each run of convert will generate a new distribution of this data, as well. We have the basic framework set up for our classifiers, and are currently generating 3 basic classifiers, for identifying opinionated sentences, and then identifying agents and targets within opinionated sentences. 
+    Our current features are very basic and consist of bag of words and SentiWordNet results for each token. Going forward we are planning to work on expanding the features drastically. Additionally, we need to determine how to pick from a set of mutually exclusive classifier results. 
+  
+   
+\section{External Resources}
+We are using the MPQA Opinion Corpus version 3.0: \verb|http://mpqa.cs.pitt.edu/corpora/mpqa_corpus/| \\
+We are using Stanford NLP: \verb|https://nlp.stanford.edu/software/| \\
+We are using SentiWordNet: \verb|http://sentiwordnet.isti.cnr.it| \\
+We are using Liblinear for our classification: \verb|https://www.csie.ntu.edu.tw/~cjlin/liblinear/| \\
+  
+    \section{Evaluation}
+    
+    \begin{center}
+  \begin{tabular}{ | l | c | r | c}
+    \hline
+    Classifier & Precision & Recall & F-Score/Accuracy \\ \hline
+    Sentence & 87.5\% & 21.3\% & 34.34\%\\ \hline
+    Agent & n/a & n/a & 99.864\%\\ \hline
+    Target & n/a & n/a & 99.864\%\\
+    \hline
+  \end{tabular}
+\end{center}
+
+    Our first and most tested classifier is for identifying sentences as opinions. Currently, using a simple bag of words and a sentiment from SentiWordNet dictionary, we are able to get a fairly high precision, but low recall, meaning that we are accurate when we guess, but we do not guess very often. \\ 
+    
+    For the target and agent classifiers, we have developed classifiers that classify a token in a sentence as either a target or not a target, and either an agent or not an agent. In order to extend this to the final classification problem, we need to solve the issue of selecting from a mutually exclusive set of classifiers, which is on our to-do list. Our current results are showing the accuracy of identifying a token as either agent or target as extremely high (99.86\%). We have not broken this out into precision and recall yet, but I would guess we are far over-guessing and will need to address that issue. 
+    
+    \section{Contributions}
+    There has been some shared work on the overall system as Andre has worked to get Matt up to speed on the system, but most of it is originally Andre's. As we have moved forward on building classifiers, we have divided those between the two of us. 
+    \begin{itemize}
+    \item Data Processing/CL Interface: Andre LaFleur \\
+    \item Sentence Classifier: Andre LaFleur \\
+    \item Agent/Target Classifiers: Matthew Canova \\
+    \end{itemize}
+    % Here's some ideas on building the project:
+    %
+    % * Let's use bootstrapping to "learn" the best patterns that correspond to opinions, and then use
+    %   those to get opinions from a document.
+    % * When we extract a full opinion, we can extract features and use them to classify them as positive
+    %   or negative. We can use any machine learning algorithm we want for this.
+    % *
+\end{document}
