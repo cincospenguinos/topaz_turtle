@@ -1,8 +1,14 @@
 package toptur;
 
+import edu.stanford.nlp.ling.CoreAnnotations;
+import edu.stanford.nlp.pipeline.Annotation;
+import edu.stanford.nlp.pipeline.StanfordCoreNLP;
 import edu.stanford.nlp.simple.Document;
 import edu.stanford.nlp.simple.Sentence;
 import edu.stanford.nlp.simple.Token;
+import edu.stanford.nlp.trees.Tree;
+import edu.stanford.nlp.trees.TreeCoreAnnotations;
+import edu.stanford.nlp.util.CoreMap;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -38,6 +44,7 @@ public class Main {
     public static final String SENTI_WORD_NET_FILE = "sentiwordnet.txt";
 
     private static SentiWordNetDictionary sentiWordNetDictionary;
+    private static volatile StanfordCoreNLP stanfordCoreNLP;
 
     // TODO: Next goal: extract the specific opinion word(s) from the sentence
 
@@ -79,6 +86,7 @@ public class Main {
 //            }
 
         } else if (task.equals("test")) {
+			ArrayList<NewsArticle> devArticles = getAllDocsFrom(DEV_DOCS);
             ArrayList<NewsArticle> testArticles = getAllDocsFrom(TEST_DOCS);
 //            createVectorFile(testArticles, SENTENCES_TEST_FILE);
             testLibLinear(SENTENCES_TEST_FILE, SENTENCES_MODEL_FILE, "/dev/null");
@@ -91,27 +99,40 @@ public class Main {
                     if (sentenceContainsOpinion(s)) {
                         Opinion o = new Opinion();
                         o.sentence = s.toString();
-
-                        // Grab the opinion words
-                        Sentence sent = new Sentence(o.sentence);
-
-                        double objectivity = 1.0;
-                        String mostSubjective = null;
-
-                        for (String w : sent.words()) {
-//                            if (sentiWordNetDictionary)
-                        }
+                        o.opinion = extractOpinionFrom(s);
 
                         // TODO: Grab the opinion/target/agent/etc. from the sentence
+                        if (o.opinion == null)
+                        	continue;
 
                         a.addExtractedOpinion(o);
                     }
                 }
-
-
             }
 
             evaluateExtractedOpinions(testArticles);
+
+			for (NewsArticle a : devArticles) {
+				Document doc = new Document(a.getFullText());
+
+				for (Sentence s : doc.sentences()) {
+					if (sentenceContainsOpinion(s)) {
+						Opinion o = new Opinion();
+						o.sentence = s.toString();
+						o.opinion = extractOpinionFrom(s);
+
+						if (o.opinion == null)
+							continue;
+
+//						System.out.println(o.opinion + "\t" + s.posTag(s.words().indexOf(o.opinion)));
+
+						// TODO: Grab the target/agent/etc. from the sentence
+						a.addExtractedOpinion(o);
+					}
+				}
+			}
+
+			evaluateExtractedOpinions(devArticles);
 
         } else if (task.equals("extract")) {
             for (int i = 1; i < args.length; i++) {
@@ -125,7 +146,30 @@ public class Main {
         }
     }
 
-    /**
+	private static String extractOpinionFrom(Sentence s) {
+		int index = -1;
+		double objectivity = 1.0;
+		for (int i = 0; i < s.words().size(); i++) {
+			String w = s.word(i);
+
+			if (sentiWordNetDictionary.hasWord(w) && sentiWordNetDictionary.getObjectivityOf(w) < objectivity) {
+				index = i;
+				objectivity = sentiWordNetDictionary.getObjectivityOf(w);
+			}
+		}
+
+		if (index == -1 || objectivity >= 0.95) // word is null or word too objective? Probably not an opinion
+			return null;
+
+//		Annotation document = new Annotation(s.toString());
+//		stanfordCoreNLP.annotate(document);
+//		List<CoreMap> list = document.get(CoreAnnotations.SentencesAnnotation.class);
+//		Tree parseTree = list.get(0).get(TreeCoreAnnotations.TreeAnnotation.class);
+
+		return s.word(index);
+	}
+
+	/**
      * Helper method to get all docs in some path in NewsArticle class.
      *
      * @param path

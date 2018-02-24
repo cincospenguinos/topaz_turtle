@@ -8,3 +8,5 @@ liblinear_*
 .liblinear_models/
 *.vector
 *.txt
+**/**/*.a
+**/**/*.o
