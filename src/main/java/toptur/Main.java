@@ -165,18 +165,18 @@ public class Main {
 
                             break;
 
-                        case HAS_WORD_RELATED_TO_OTHER_WORD:
-                            for (String w : words) {
-                                DataMuseWord[] dataMuseWords = DataMuse.getWordsRelatedTo(w);
-                                if (dataMuseWords == null)
-                                    continue;
-
-                                for (DataMuseWord dmw : dataMuseWords) {
-                                    id = libLinearFeatureManager.getIdFor(feature, dmw.word);
-                                    libLinearFeatureVector.put(id, true);
-                                }
-                            }
-                            break;
+//                        case HAS_WORD_RELATED_TO_OTHER_WORD:
+//                            for (String w : words) {
+//                                DataMuseWord[] dataMuseWords = DataMuse.getWordsRelatedTo(w);
+//                                if (dataMuseWords == null)
+//                                    continue;
+//
+//                                for (DataMuseWord dmw : dataMuseWords) {
+//                                    id = libLinearFeatureManager.getIdFor(feature, dmw.word);
+//                                    libLinearFeatureVector.put(id, true);
+//                                }
+//                            }
+//                            break;
                     }
                 }
 
