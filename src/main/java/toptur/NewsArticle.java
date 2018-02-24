@@ -100,6 +100,13 @@ public class NewsArticle {
 
         return false;
     }
+    
+    public String getOpinionAgent(String sentence) {
+    		for (Opinion o: goldStandardOpinions)
+    			if (o.sentence.equalsIgnoreCase(sentence))
+    				return o.agent;
+    		return "Null";
+    }
 
     public String getFullText() {
         return fullText;
