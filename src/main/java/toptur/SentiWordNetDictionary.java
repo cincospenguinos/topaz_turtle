@@ -30,4 +30,8 @@ public class SentiWordNetDictionary {
 
         return 1.0; // Assume full objectivity
     }
+
+    public boolean hasWord(String w) {
+        return dictionary.containsKey(w);
+    }
 }

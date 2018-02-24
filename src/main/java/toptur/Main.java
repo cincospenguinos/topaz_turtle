@@ -1,7 +1,13 @@
 package toptur;
 
+import edu.stanford.nlp.ling.CoreAnnotations;
+import edu.stanford.nlp.pipeline.Annotation;
+import edu.stanford.nlp.pipeline.StanfordCoreNLP;
 import edu.stanford.nlp.simple.Document;
 import edu.stanford.nlp.simple.Sentence;
+import edu.stanford.nlp.trees.Tree;
+import edu.stanford.nlp.trees.TreeCoreAnnotations;
+import edu.stanford.nlp.util.CoreMap;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -28,6 +34,7 @@ public class Main {
     public static final String SENTI_WORD_NET_FILE = "sentiwordnet.txt";
 
     private static SentiWordNetDictionary sentiWordNetDictionary;
+    private static volatile StanfordCoreNLP stanfordCoreNLP;
 
     // TODO: Next goal: extract the specific opinion word(s) from the sentence
 
@@ -57,6 +64,7 @@ public class Main {
 //            }
 
         } else if (task.equals("test")) {
+			ArrayList<NewsArticle> devArticles = getAllDocsFrom(DEV_DOCS);
             ArrayList<NewsArticle> testArticles = getAllDocsFrom(TEST_DOCS);
 //            createVectorFile(testArticles, SENTENCES_TEST_FILE);
             testLibLinear(SENTENCES_TEST_FILE, SENTENCES_MODEL_FILE, "/dev/null");
@@ -69,17 +77,40 @@ public class Main {
                     if (sentenceContainsOpinion(s)) {
                         Opinion o = new Opinion();
                         o.sentence = s.toString();
+                        o.opinion = extractOpinionFrom(s);
 
-                        // TODO: Grab the opinion/target/agent/etc. from the sentence
+                        if (o.opinion == null)
+                        	continue;
 
+                        // TODO: Grab the target/agent/etc. from the sentence
                         a.addExtractedOpinion(o);
                     }
                 }
-
-
             }
 
             evaluateExtractedOpinions(testArticles);
+
+			for (NewsArticle a : devArticles) {
+				Document doc = new Document(a.getFullText());
+
+				for (Sentence s : doc.sentences()) {
+					if (sentenceContainsOpinion(s)) {
+						Opinion o = new Opinion();
+						o.sentence = s.toString();
+						o.opinion = extractOpinionFrom(s);
+
+						if (o.opinion == null)
+							continue;
+
+//						System.out.println(o.opinion + "\t" + s.posTag(s.words().indexOf(o.opinion)));
+
+						// TODO: Grab the target/agent/etc. from the sentence
+						a.addExtractedOpinion(o);
+					}
+				}
+			}
+
+			evaluateExtractedOpinions(devArticles);
 
         } else if (task.equals("extract")) {
             for (int i = 1; i < args.length; i++) {
@@ -93,7 +124,30 @@ public class Main {
         }
     }
 
-    /**
+	private static String extractOpinionFrom(Sentence s) {
+		int index = -1;
+		double objectivity = 1.0;
+		for (int i = 0; i < s.words().size(); i++) {
+			String w = s.word(i);
+
+			if (sentiWordNetDictionary.hasWord(w) && sentiWordNetDictionary.getObjectivityOf(w) < objectivity) {
+				index = i;
+				objectivity = sentiWordNetDictionary.getObjectivityOf(w);
+			}
+		}
+
+		if (index == -1 || objectivity >= 0.95) // word is null or word too objective? Probably not an opinion
+			return null;
+
+//		Annotation document = new Annotation(s.toString());
+//		stanfordCoreNLP.annotate(document);
+//		List<CoreMap> list = document.get(CoreAnnotations.SentencesAnnotation.class);
+//		Tree parseTree = list.get(0).get(TreeCoreAnnotations.TreeAnnotation.class);
+
+		return s.word(index);
+	}
+
+	/**
      * Helper method to get all docs in some path in NewsArticle class.
      *
      * @param path
@@ -289,7 +343,11 @@ public class Main {
         }
     }
 
-    private static void setup() {}
+    private static void setup() {
+		Properties props = new Properties();
+		props.put("annotators", "tokenize, ssplit, pos, lemma, ner, parse, dcoref");
+		stanfordCoreNLP = new StanfordCoreNLP(props);
+	}
 
     private static void getSentiWordNet() {
         sentiWordNetDictionary = new SentiWordNetDictionary();
@@ -366,20 +424,37 @@ public class Main {
                     Opinion gold = goldStandardOpinions.get(i);
                     Opinion extracted = extractedOpinions.get(j);
 
-                    // TODO: Change this to evaluate everything--sentence, opinion, agent, and target
-                    if (gold.sentence.equals(extracted.sentence) && !extractedIndexes.contains(j) && !goldIndexes.contains(i)) {
+                    if (gold.equals(extracted) && !extractedIndexes.contains(j) && !goldIndexes.contains(i)) {
                         truePositives += 1;
                         extractedIndexes.add(j);
                         goldIndexes.add(i);
+
+//                        System.out.println(gold.sentence + "\t" + extracted.sentence);
+//						System.out.println(gold.opinion + "\t" + extracted.opinion + "\n");
                     }
                 }
             }
 
-//            System.out.println(truePositives + "\t" + goldStandardOpinions.size() + "\t" + extractedOpinions.size());
+//            for (Opinion o : goldStandardOpinions) {
+//            	Sentence s = new Sentence(o.sentence);
+//
+//            	for (String w : s.words()) {
+//            		if (o.opinion.contains(w)) {
+//						System.out.print(w + "/" + s.posTag(s.words().indexOf(w)) + " ");
+//					}
+//				}
+//
+//				System.out.println(o.opinion);
+//			}
 
             double precision = truePositives / extractedOpinions.size();
             double recall = truePositives / goldStandardOpinions.size();
-            double fscore = 2 * ((precision * recall) / (precision + recall));
+            double fscore;
+
+            if (precision == 0.0 && recall == 0.0)
+            	fscore = 0.0;
+            else
+            	fscore = 2 * ((precision * recall) / (precision + recall));
 
             System.out.println(article.getDocumentName() + "\t" + precision + "\t" + recall + "\t" + fscore);
             totalFScore += fscore;
