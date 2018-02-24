@@ -24,6 +24,10 @@ public class SentiWordNetDictionary {
         }
     }
 
+    public boolean hasWord(String word) {
+        return dictionary.containsKey(word);
+    }
+
     public double getObjectivityOf(String word) {
         if (dictionary.containsKey(word))
             return dictionary.get(word).getObjectivity();

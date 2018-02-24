@@ -1,5 +1,7 @@
 package toptur;
 
+import edu.stanford.nlp.simple.Sentence;
+
 /**
  * An opinion, extracted from an article.
  */
@@ -19,5 +21,9 @@ public class Opinion {
         }
 
         return false;
+    }
+
+    public void extractOpinion() {
+
     }
 }

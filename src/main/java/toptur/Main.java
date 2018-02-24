@@ -70,6 +70,16 @@ public class Main {
                         Opinion o = new Opinion();
                         o.sentence = s.toString();
 
+                        // Grab the opinion words
+                        Sentence sent = new Sentence(o.sentence);
+
+                        double objectivity = 1.0;
+                        String mostSubjective = null;
+
+                        for (String w : sent.words()) {
+                            if (sentiWordNetDictionary)
+                        }
+
                         // TODO: Grab the opinion/target/agent/etc. from the sentence
 
                         a.addExtractedOpinion(o);
