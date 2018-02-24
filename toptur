@@ -190,7 +190,7 @@ class TopTur < Thor
 		# Setup liblinear
 		Dir.mkdir(MODELS_DIRECTORY) unless Dir.exist?(MODELS_DIRECTORY)
 
-		if `cd liblinear && make &> /dev/null`
+		if `cd liblinear && make clean &> /dev/null && make &> /dev/null`
 			`mv liblinear/train .`
 			`mv liblinear/predict .`
 			`mv train liblinear_train`
