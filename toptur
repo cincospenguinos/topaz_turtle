@@ -142,6 +142,8 @@ class TopTur < Thor
 			exit(1)
 		end
 
+		@@settings[:trained] = true
+		save_settings
 		exec("java -jar #{JAR_NAME} train")
 	end
 
@@ -154,6 +156,11 @@ class TopTur < Thor
 			exit(1)
 		end
 
+		unless @@settings[:trained]
+			STDERR.puts 'Classifiers not trained! Please run `./toptur train` before attempting this command'
+			exit(1)
+		end
+
 		exec("java -jar #{JAR_NAME} test")
 	end
 
@@ -163,6 +170,11 @@ class TopTur < Thor
 
 		unless @@settings[:separated]
 			STDERR.puts 'Dataset not converted! Please run `./toptur convert` before attempting to train'
+			exit(1)
+		end
+
+		unless @@settings[:trained]
+			STDERR.puts 'Classifiers not trained! Please run `./toptur train` before attempting this command'
 			exit(1)
 		end
 
@@ -190,7 +202,7 @@ class TopTur < Thor
 			@@settings = {
 				:setup => true,
 				:separated => false,
-				:train => false
+				:trained => false
 			}
 			save_settings
 		end

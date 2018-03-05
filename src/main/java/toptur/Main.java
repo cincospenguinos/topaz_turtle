@@ -57,7 +57,6 @@ public class Main {
         String task = args[0].toLowerCase();
         if (task.equals("train")) {
             ArrayList<NewsArticle> devArticles = getAllDocsFrom(DEV_DOCS);
-            ArrayList<NewsArticle> testArticles = getAllDocsFrom(TEST_DOCS);
 
             // Train to detect opinionated sentences
             createSentencesVectorFile(devArticles, SENTENCES_TRAINING_FILE);
@@ -89,57 +88,52 @@ public class Main {
             testLibLinear(TARGET_TEST_FILE, TARGET_MODEL_FILE, "/dev/null");
 
             // Extract the opinions
-            for (NewsArticle a : testArticles) {
-                Document doc = new Document(a.getFullText());
-
-                for (Sentence s : doc.sentences()) {
-                    if (sentenceContainsOpinion(s)) {
-                        Opinion o = new Opinion();
-                        o.sentence = s.toString();
-                        o.opinion = extractOpinionFrom(s);
-
-                        // TODO: Grab the opinion/target/agent/etc. from the sentence
-                        if (o.opinion == null)
-                        	continue;
-
-                        a.addExtractedOpinion(o);
-                    }
-                }
-            }
+            for (NewsArticle a : testArticles)
+                extractAllOpinionsFor(a);
 
             evaluateExtractedOpinions(testArticles);
 
-			for (NewsArticle a : devArticles) {
-				Document doc = new Document(a.getFullText());
-
-				for (Sentence s : doc.sentences()) {
-					if (sentenceContainsOpinion(s)) {
-						Opinion o = new Opinion();
-						o.sentence = s.toString();
-						o.opinion = extractOpinionFrom(s);
-
-						if (o.opinion == null)
-							continue;
-
-//						System.out.println(o.opinion + "\t" + s.posTag(s.words().indexOf(o.opinion)));
-
-						// TODO: Grab the target/agent/etc. from the sentence
-						a.addExtractedOpinion(o);
-					}
-				}
-			}
+			for (NewsArticle a : devArticles)
+				extractAllOpinionsFor(a);
 
 			evaluateExtractedOpinions(devArticles);
 
         } else if (task.equals("extract")) {
             for (int i = 1; i < args.length; i++) {
-                // TODO: This
-                System.out.println(args[i] + " is a file I'll need to extract stuff from");
+                File file = new File(args[i]);
+
+                if (file.exists()) {
+                    NewsArticle article = new NewsArticle(file);
+                    extractAllOpinionsFor(article);
+                    System.out.println(article);
+                } else {
+                    System.err.println("\"" + args[i] + "\" could not be found!");
+                }
             }
 
         } else {
             System.err.println("No valid task provided");
             System.exit(1);
+        }
+    }
+
+    private static void extractAllOpinionsFor(NewsArticle article) {
+        Document doc = new Document(article.getFullText());
+
+        for (Sentence s : doc.sentences()) {
+            if (sentenceContainsOpinion(s)) {
+                Opinion o = new Opinion();
+                o.sentence = s.toString();
+                o.opinion = extractOpinionFrom(s);
+
+                if (o.opinion == null)
+                    continue;
+
+//						System.out.println(o.opinion + "\t" + s.posTag(s.words().indexOf(o.opinion)));
+
+                // TODO: Grab the target/agent/etc. from the sentence
+                article.addExtractedOpinion(o);
+            }
         }
     }
 
