@@ -142,6 +142,8 @@ class TopTur < Thor
 			exit(1)
 		end
 
+		@@settings[:trained] = true
+		save_settings
 		exec("java -jar #{JAR_NAME} train")
 	end
 
@@ -154,23 +156,41 @@ class TopTur < Thor
 			exit(1)
 		end
 
+		unless @@settings[:trained]
+			STDERR.puts 'Classifiers not trained! Please run `./toptur train` before attempting this command'
+			exit(1)
+		end
+
 		exec("java -jar #{JAR_NAME} test")
 	end
 
 	desc 'extract [FILE1] ...', 'Extract opinions from the individual file or files and print them in a readable format'
-	def extract
+	def extract(*files)
 		setup
 
 		unless @@settings[:separated]
 			STDERR.puts 'Dataset not converted! Please run `./toptur convert` before attempting to train'
 			exit(1)
 		end
+
+		unless @@settings[:trained]
+			STDERR.puts 'Classifiers not trained! Please run `./toptur train` before attempting this command'
+			exit(1)
+		end
+
+		exec("java -jar #{JAR_NAME} extract #{files * " "}")
+	end
+
+	desc 'reset', "Reset old run's data and start over"
+	def reset
+		`rm -rf #{DATA_DIRECTORY}`
 	end
 
 	private
 
 	SETTINGS_FILE_NAME = '.toptur_settings.json'
 	MODELS_DIRECTORY = '.liblinear_models'
+	DATA_DIRECTORY = '.toptur_data'
 
 	## Sets up local data files and things to help out
 	def setup
@@ -182,7 +202,7 @@ class TopTur < Thor
 			@@settings = {
 				:setup => true,
 				:separated => false,
-				:train => false
+				:trained => false
 			}
 			save_settings
 		end
@@ -190,15 +210,21 @@ class TopTur < Thor
 		# Setup liblinear
 		Dir.mkdir(MODELS_DIRECTORY) unless Dir.exist?(MODELS_DIRECTORY)
 
-		if `cd liblinear && make clean &> /dev/null && make &> /dev/null`
-			`mv liblinear/train .`
-			`mv liblinear/predict .`
-			`mv train liblinear_train`
-			`mv predict liblinear_predict`
-		else
-			puts 'Could not make liblinear!'
-			exit 1
+		unless File.exist?('liblinear_train') && File.exist?('liblinear_predict')
+			Dir.chdir('liblinear') do
+				if `make clean &> /dev/null && make &> /dev/null`
+					`mv train liblinear_train`
+					`mv predict liblinear_predict`
+					`mv liblinear_* ..`
+				else
+					puts 'Could not make liblinear!'
+					exit 1
+				end
+			end
 		end
+
+		# Setup local data file
+		Dir.mkdir(DATA_DIRECTORY) unless Dir.exist?(DATA_DIRECTORY)
 
 		# Package the jar using Maven
 		unless `mvn package`

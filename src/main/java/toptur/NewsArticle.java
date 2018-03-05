@@ -18,6 +18,30 @@ public class NewsArticle {
     private ArrayList<Opinion> extractedOpinions; // opinions found in the document
     private ArrayList<Opinion> goldStandardOpinions; // hand annotated opinions
 
+    public NewsArticle(File f) {
+        documentName = f.getName();
+
+        try {
+            StringBuilder fullTextBuilder = new StringBuilder();
+            Scanner s = new Scanner(f);
+
+            while(s.hasNextLine()) {
+                fullTextBuilder.append(s.nextLine());
+                fullTextBuilder.append("\n");
+            }
+
+            s.close();
+
+            fullText = fullTextBuilder.toString();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
+
+        extractedOpinions = new ArrayList<Opinion>();
+        goldStandardOpinions = new ArrayList<Opinion>();
+    }
+
     private NewsArticle(String name, String _fullText, Opinion[] goldStandards) {
         documentName = name;
         fullText = _fullText;
@@ -33,7 +57,7 @@ public class NewsArticle {
         builder.append(documentName);
         builder.append("\n\n");
 
-        for (Opinion o : goldStandardOpinions) {
+        for (Opinion o : extractedOpinions) {
             builder.append("\tOpinion\t");
             builder.append(o.opinion);
             builder.append("\n\tAgent\t");
@@ -83,7 +107,7 @@ public class NewsArticle {
             }
         }
 
-        return new NewsArticle(jsonFile.getName(), fullTextBuilder.toString(), opinions); // TODO: This
+        return new NewsArticle(jsonFile.getName(), fullTextBuilder.toString(), opinions);
     }
 
     /**

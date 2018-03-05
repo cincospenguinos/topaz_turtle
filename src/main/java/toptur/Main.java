@@ -1,14 +1,8 @@
 package toptur;
 
-import edu.stanford.nlp.ling.CoreAnnotations;
-import edu.stanford.nlp.pipeline.Annotation;
 import edu.stanford.nlp.pipeline.StanfordCoreNLP;
 import edu.stanford.nlp.simple.Document;
 import edu.stanford.nlp.simple.Sentence;
-import edu.stanford.nlp.simple.Token;
-import edu.stanford.nlp.trees.Tree;
-import edu.stanford.nlp.trees.TreeCoreAnnotations;
-import edu.stanford.nlp.util.CoreMap;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -41,6 +35,9 @@ public class Main {
 	public static final String TARGET_MODEL_FILE = ".liblinear_models/target.model";
 	public static final String TARGET_TEST_FILE = "target_test.vector";
 
+	public static final String TOPTUR_DATA = ".toptur_data";
+	public static final String LIB_LINEAR_FEATURE_MANAGER_FILE = TOPTUR_DATA + "/lib_linear_feature_manager.json";
+
     public static final String SENTI_WORD_NET_FILE = "sentiwordnet.txt";
 
     private static SentiWordNetDictionary sentiWordNetDictionary;
@@ -60,89 +57,83 @@ public class Main {
         String task = args[0].toLowerCase();
         if (task.equals("train")) {
             ArrayList<NewsArticle> devArticles = getAllDocsFrom(DEV_DOCS);
-            ArrayList<NewsArticle> testArticles = getAllDocsFrom(TEST_DOCS);
 
             // Train to detect opinionated sentences
-            createVectorFile(devArticles, SENTENCES_TRAINING_FILE);
-            createVectorFile(testArticles, SENTENCES_TEST_FILE);
+            createSentencesVectorFile(devArticles, SENTENCES_TRAINING_FILE);
             trainLibLinear(SENTENCES_TRAINING_FILE, SENTENCES_MODEL_FILE);
-            testLibLinear(SENTENCES_TEST_FILE, SENTENCES_MODEL_FILE, "/dev/null");
+            testLibLinear(SENTENCES_TRAINING_FILE, SENTENCES_MODEL_FILE, "/dev/null");
 
 			// Train to detect opinion agents
 			createVectorFileAgent(devArticles, AGENT_TRAINING_FILE);
-			createVectorFileAgent(testArticles, AGENT_TEST_FILE);
 			trainLibLinear(AGENT_TRAINING_FILE, AGENT_MODEL_FILE);
-			testLibLinear(AGENT_TEST_FILE, AGENT_MODEL_FILE, "/dev/null");
+            testLibLinear(AGENT_TRAINING_FILE, AGENT_MODEL_FILE, "/dev/null");
 
 			// Train to detect opinion agents
 			createVectorFileTarget(devArticles, TARGET_TRAINING_FILE);
-			createVectorFileTarget(testArticles, TARGET_TEST_FILE);
 			trainLibLinear(TARGET_TRAINING_FILE, TARGET_MODEL_FILE);
-			testLibLinear(TARGET_TEST_FILE, TARGET_MODEL_FILE, "/dev/null");
+            testLibLinear(TARGET_TRAINING_FILE, TARGET_MODEL_FILE, "/dev/null");
 
-//            for (NewsArticle a : devArticles) {
-//                for (Opinion o : a.getGoldStandardOpinions())
-//                    System.out.println(o.opinion + "\t" + o.sentence);
-//            }
+            LibLinearFeatureManager.saveInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
         } else if (task.equals("test")) {
 			ArrayList<NewsArticle> devArticles = getAllDocsFrom(DEV_DOCS);
             ArrayList<NewsArticle> testArticles = getAllDocsFrom(TEST_DOCS);
-//            createVectorFile(testArticles, SENTENCES_TEST_FILE);
+
+            createSentencesVectorFile(testArticles, SENTENCES_TEST_FILE);
+            createVectorFileAgent(testArticles, AGENT_TEST_FILE);
+            createVectorFileTarget(testArticles, TARGET_TEST_FILE);
+
             testLibLinear(SENTENCES_TEST_FILE, SENTENCES_MODEL_FILE, "/dev/null");
+            testLibLinear(AGENT_TEST_FILE, AGENT_MODEL_FILE, "/dev/null");
+            testLibLinear(TARGET_TEST_FILE, TARGET_MODEL_FILE, "/dev/null");
 
             // Extract the opinions
-            for (NewsArticle a : testArticles) {
-                Document doc = new Document(a.getFullText());
-
-                for (Sentence s : doc.sentences()) {
-                    if (sentenceContainsOpinion(s)) {
-                        Opinion o = new Opinion();
-                        o.sentence = s.toString();
-                        o.opinion = extractOpinionFrom(s);
-
-                        // TODO: Grab the opinion/target/agent/etc. from the sentence
-                        if (o.opinion == null)
-                        	continue;
-
-                        a.addExtractedOpinion(o);
-                    }
-                }
-            }
+            for (NewsArticle a : testArticles)
+                extractAllOpinionsFor(a);
 
             evaluateExtractedOpinions(testArticles);
 
-			for (NewsArticle a : devArticles) {
-				Document doc = new Document(a.getFullText());
-
-				for (Sentence s : doc.sentences()) {
-					if (sentenceContainsOpinion(s)) {
-						Opinion o = new Opinion();
-						o.sentence = s.toString();
-						o.opinion = extractOpinionFrom(s);
-
-						if (o.opinion == null)
-							continue;
-
-//						System.out.println(o.opinion + "\t" + s.posTag(s.words().indexOf(o.opinion)));
-
-						// TODO: Grab the target/agent/etc. from the sentence
-						a.addExtractedOpinion(o);
-					}
-				}
-			}
+			for (NewsArticle a : devArticles)
+				extractAllOpinionsFor(a);
 
 			evaluateExtractedOpinions(devArticles);
 
         } else if (task.equals("extract")) {
             for (int i = 1; i < args.length; i++) {
-                // TODO: This
-                System.out.println(args[i] + " is a file I'll need to extract stuff from");
+                File file = new File(args[i]);
+
+                if (file.exists()) {
+                    NewsArticle article = new NewsArticle(file);
+                    extractAllOpinionsFor(article);
+                    System.out.println(article);
+                } else {
+                    System.err.println("\"" + args[i] + "\" could not be found!");
+                }
             }
 
         } else {
             System.err.println("No valid task provided");
             System.exit(1);
+        }
+    }
+
+    private static void extractAllOpinionsFor(NewsArticle article) {
+        Document doc = new Document(article.getFullText());
+
+        for (Sentence s : doc.sentences()) {
+            if (sentenceContainsOpinion(s)) {
+                Opinion o = new Opinion();
+                o.sentence = s.toString();
+                o.opinion = extractOpinionFrom(s);
+
+                if (o.opinion == null)
+                    continue;
+
+//						System.out.println(o.opinion + "\t" + s.posTag(s.words().indexOf(o.opinion)));
+
+                // TODO: Grab the target/agent/etc. from the sentence
+                article.addExtractedOpinion(o);
+            }
         }
     }
 
@@ -199,10 +190,10 @@ public class Main {
 	 * @param articles
 	 * @param nameOfVectorFile
 	 */
-	private static void createVectorFile(ArrayList<NewsArticle> articles, String nameOfVectorFile)
+	private static void createSentencesVectorFile(ArrayList<NewsArticle> articles, String nameOfVectorFile)
 	{
 		StringBuilder vectorFileBuilder = new StringBuilder();
-		LibLinearFeatureManager libLinearFeatureManager = LibLinearFeatureManager.getInstance();
+		LibLinearFeatureManager libLinearFeatureManager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
 		for (NewsArticle article : articles)
 		{
@@ -237,7 +228,7 @@ public class Main {
 						}
 						break;
 					case OBJECTIVITY_OF_SENTENCE:
-						id = libLinearFeatureManager.getIdFor(feature, true);
+						id = libLinearFeatureManager.getIdFor(feature, "");
 						double objectivity = 0.0;
 
 						for (String w : words)
@@ -302,7 +293,7 @@ public class Main {
      */
     private static void createVectorFileAgent(ArrayList<NewsArticle> articles, String nameOfVectorFile) {
         StringBuilder vectorFileBuilder = new StringBuilder();
-        LibLinearFeatureManager libLinearFeatureManager = LibLinearFeatureManager.getInstance();
+        LibLinearFeatureManager libLinearFeatureManager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
         for (NewsArticle article : articles) {
             Document doc = new Document(article.getFullText());
@@ -366,8 +357,8 @@ public class Main {
             e.printStackTrace();
         }
     }
-    
-    
+
+
     /**
      * Generates a vector file in LibLinear format for whatever articles are provided.
      *
@@ -376,35 +367,35 @@ public class Main {
      */
     private static void createVectorFileTarget(ArrayList<NewsArticle> articles, String nameOfVectorFile) {
         StringBuilder vectorFileBuilder = new StringBuilder();
-        LibLinearFeatureManager libLinearFeatureManager = LibLinearFeatureManager.getInstance();
+        LibLinearFeatureManager libLinearFeatureManager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
         for (NewsArticle article : articles) {
             Document doc = new Document(article.getFullText());
 
             for (Sentence s : doc.sentences()) {
-            	
+
             		if (article.sentenceHasOpinion(s.toString())) {
-            			
+
             			String agent = article.getOpinionAgent(s.toString());
-            	
+
             			for(String word : s.words()) {
 
 		                StringBuilder vectorLineBuilder = new StringBuilder();
 		                TreeMap<Integer, Object> libLinearFeatureVector = new TreeMap<Integer, Object>();
-		
+
 		                // The label for this sentence
 		                if (word.equalsIgnoreCase(agent))
 		                    vectorLineBuilder.append(1);
 		                else
 		                		vectorLineBuilder.append(0);
-		                
-		
+
+
 		                List<String> words = s.words();
-		
+
 		                // Creating the feature vectors
 		                for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature.values()) {
 		                    int id;
-		
+
 		                    switch(feature) {
 		                        case CONTAINS_UNIGRAM:
 		                            for (String w : words) {
@@ -414,18 +405,18 @@ public class Main {
 		                            break;
 		                    }
 		                }
-		
+
 		                for (Map.Entry<Integer, Object> e : libLinearFeatureVector.entrySet()) {
 		                    vectorLineBuilder.append(" ");
 		                    vectorLineBuilder.append(e.getKey());
 		                    vectorLineBuilder.append(":");
-		
+
 		                    if (e.getValue() instanceof Boolean)
 		                        vectorLineBuilder.append(1);
 		                    else
 		                        vectorLineBuilder.append(e.getValue());
 		                }
-		
+
 		                vectorFileBuilder.append(vectorLineBuilder.toString());
 		                vectorFileBuilder.append("\n");
 		            }
@@ -442,10 +433,10 @@ public class Main {
         }
     }
 
-	private static void createVectorFile(Sentence sentence, String nameOfVectorFile)
+	private static void createSingleSentenceVectorFile(Sentence sentence, String nameOfVectorFile)
 	{
 		StringBuilder vectorFileBuilder = new StringBuilder();
-		LibLinearFeatureManager libLinearFeatureManager = LibLinearFeatureManager.getInstance();
+		LibLinearFeatureManager libLinearFeatureManager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
 		StringBuilder vectorLineBuilder = new StringBuilder();
 		TreeMap<Integer, Object> libLinearFeatureVector = new TreeMap<Integer, Object>();
@@ -467,7 +458,7 @@ public class Main {
 				}
 				break;
 			case OBJECTIVITY_OF_SENTENCE:
-				int id = libLinearFeatureManager.getIdFor(feature, true);
+				int id = libLinearFeatureManager.getIdFor(feature, "");
 				double objectivity = 0.0;
 
 				for (String w : words)
@@ -586,7 +577,7 @@ public class Main {
 	private static boolean sentenceContainsOpinion(Sentence sentence)
 	{
 		String name = "some_file.vector";
-		createVectorFile(sentence, name);
+		createSingleSentenceVectorFile(sentence, name);
 
 		try
 		{
