@@ -18,6 +18,10 @@ import java.util.*;
  * args[0] -- what task we are going to do args[1+] -- whatever input is needed
  */
 public class Main {
+	
+	//////////////////////
+	// MEMBER VARIABLES //
+	//////////////////////
 
     public static final String DEV_DOCS = "dataset/dev";
     public static final String TEST_DOCS = "dataset/test";
@@ -43,13 +47,14 @@ public class Main {
     private static SentiWordNetDictionary sentiWordNetDictionary;
     private static volatile StanfordCoreNLP stanfordCoreNLP;
 
-    // TODO: Next goal: extract the specific opinion word(s) from the sentence
 
+    //////////////////////
+    //       MAIN       //
+    //////////////////////
+    
     public static void main(String[] args) {
         if (args.length == 0)
             System.exit(0);
-
-        setup();
 
         System.out.println("Gathering SentiWordNet dictionary...");
         getSentiWordNet();
@@ -117,51 +122,14 @@ public class Main {
         }
     }
 
-    private static void extractAllOpinionsFor(NewsArticle article) {
-        Document doc = new Document(article.getFullText());
-
-        for (Sentence s : doc.sentences()) {
-            if (sentenceContainsOpinion(s)) {
-                Opinion o = new Opinion();
-                o.sentence = s.toString();
-                o.opinion = extractOpinionFrom(s);
-
-                if (o.opinion == null)
-                    continue;
-
-//						System.out.println(o.opinion + "\t" + s.posTag(s.words().indexOf(o.opinion)));
-
-                // TODO: Grab the target/agent/etc. from the sentence
-                article.addExtractedOpinion(o);
-            }
-        }
-    }
-
-	private static String extractOpinionFrom(Sentence s) {
-		int index = -1;
-		double objectivity = 1.0;
-		for (int i = 0; i < s.words().size(); i++) {
-			String w = s.word(i);
-
-			if (sentiWordNetDictionary.hasWord(w) && sentiWordNetDictionary.getObjectivityOf(w) < objectivity) {
-				index = i;
-				objectivity = sentiWordNetDictionary.getObjectivityOf(w);
-			}
-		}
-
-		if (index == -1 || objectivity >= 0.95) // word is null or word too objective? Probably not an opinion
-			return null;
-
-//		Annotation document = new Annotation(s.toString());
-//		stanfordCoreNLP.annotate(document);
-//		List<CoreMap> list = document.get(CoreAnnotations.SentencesAnnotation.class);
-//		Tree parseTree = list.get(0).get(TreeCoreAnnotations.TreeAnnotation.class);
-
-		return s.word(index);
-	}
-
+	/////////////////////
+	// DATA PROCESSING //
+	/////////////////////
+    
 	/**
-     * Helper method to get all docs in some path in NewsArticle class.
+     * Reads all docs in some path and converts them to NewsArticles.
+     * 
+     * Reads gold standard data and populates in NewsArticles.
      *
      * @param path
      * @return
@@ -182,10 +150,16 @@ public class Main {
 
         return docs;
     }
-
+    
+    ////////////////////////
+    // FEATURE PROCESSING //
+    ////////////////////////
+    
 	/**
 	 * Generates a vector file in LibLinear format for whatever articles are
 	 * provided.
+	 * 
+	 * This vector file contains features for identifying an opinionated sentence. 
 	 *
 	 * @param articles
 	 * @param nameOfVectorFile
@@ -288,6 +262,8 @@ public class Main {
 	/**
      * Generates a vector file in LibLinear format for whatever articles are provided.
      *
+     * This vector file contains features for identifying the Agent of an opinion. 
+     *
      * @param articles
      * @param nameOfVectorFile
      */
@@ -361,7 +337,9 @@ public class Main {
 
     /**
      * Generates a vector file in LibLinear format for whatever articles are provided.
-     *
+     * 
+     * This vector file contains features for identifying the Target of an opinion. 
+     * 
      * @param articles
      * @param nameOfVectorFile
      */
@@ -433,6 +411,14 @@ public class Main {
         }
     }
 
+    /**
+     * Generates a vector file in LibLinear format for whatever articles are provided.
+     * 
+     * This vector file contains features for identifying the Target of an opinion. 
+     * 
+     * @param articles
+     * @param nameOfVectorFile
+     */
 	private static void createSingleSentenceVectorFile(Sentence sentence, String nameOfVectorFile)
 	{
 		StringBuilder vectorFileBuilder = new StringBuilder();
@@ -500,6 +486,10 @@ public class Main {
 		}
 	}
 
+	///////////////////////
+	// TRAIN CLASSIFIERS //
+	///////////////////////
+	
 	private static void trainLibLinear(String vectorFileName, String modelFileName)
 	{
 		// Now that the vector file is put together, we need to run liblinear
@@ -512,6 +502,10 @@ public class Main {
 		}
 	}
 
+	//////////////////////
+	// TEST CLASSIFIERS //
+	//////////////////////
+	
 	private static void testLibLinear(String testVectorFileName, String modelFileName, String outputFileName)
 	{
 		// Now that the vector file is put together, we need to run liblinear
@@ -532,10 +526,149 @@ public class Main {
 		}
 	}
 
-	private static void setup()
+	//////////////////////////////////////
+	// EXTRACT/EVALUATE WITH CLASSIFIER //
+	//////////////////////////////////////
+	
+	// Evaluate
+	private static boolean sentenceContainsOpinion(Sentence sentence)
 	{
-	}
+		String name = "some_file.vector";
+		createSingleSentenceVectorFile(sentence, name);
 
+		try
+		{
+			Runtime.getRuntime().exec("./liblinear_predict " + name + " " + SENTENCES_MODEL_FILE + " output.txt");
+			Thread.sleep(100); // To give LibLinear enough time to output to file
+			Scanner derp = new Scanner(Runtime.getRuntime().exec("cat output.txt").getInputStream());
+			int i = derp.nextInt();
+			derp.close();
+			return i == 1;
+		} catch (IOException e)
+		{
+			e.printStackTrace();
+		} catch (InterruptedException e)
+		{
+			e.printStackTrace();
+		}
+
+		return false;
+	}
+		
+	// This is for evaluating 
+    private static void extractAllOpinionsFor(NewsArticle article) {
+        Document doc = new Document(article.getFullText());
+
+        for (Sentence s : doc.sentences()) {
+            if (sentenceContainsOpinion(s)) {
+                Opinion o = new Opinion();
+                o.sentence = s.toString();
+                o.opinion = extractOpinionFrom(s);
+
+                if (o.opinion == null)
+                    continue;
+
+//						System.out.println(o.opinion + "\t" + s.posTag(s.words().indexOf(o.opinion)));
+
+                // TODO: Grab the target/agent/etc. from the sentence
+                article.addExtractedOpinion(o);
+            }
+        }
+    }
+
+    	// Evaluation, finds the most objective word in the sentence
+	private static String extractOpinionFrom(Sentence s) {
+		int index = -1;
+		double objectivity = 1.0;
+		for (int i = 0; i < s.words().size(); i++) {
+			String w = s.word(i);
+
+			if (sentiWordNetDictionary.hasWord(w) && sentiWordNetDictionary.getObjectivityOf(w) < objectivity) {
+				index = i;
+				objectivity = sentiWordNetDictionary.getObjectivityOf(w);
+			}
+		}
+
+		if (index == -1 || objectivity >= 0.95) // word is null or word too objective? Probably not an opinion
+			return null;
+
+//		Annotation document = new Annotation(s.toString());
+//		stanfordCoreNLP.annotate(document);
+//		List<CoreMap> list = document.get(CoreAnnotations.SentencesAnnotation.class);
+//		Tree parseTree = list.get(0).get(TreeCoreAnnotations.TreeAnnotation.class);
+
+		return s.word(index);
+	}
+	
+	// Evaluate
+	private static void evaluateExtractedOpinions(ArrayList<NewsArticle> articles)
+	{
+		// So we're using F Score. That means we care about two things:
+		// Precision: How many did I extract were correct?
+		// Recall: How many correct ones were successfully extracted?
+
+		double totalFScore = 0.0;
+
+		System.out.println("Name\tPrecision\tRecall\tFScore");
+
+		for (NewsArticle article : articles)
+		{
+			//ArrayList<Opinion> extractedOpinions = (ArrayList<Opinion>) article.getExtractedOpinions().clone();
+			//ArrayList<Opinion> goldStandardOpinions = (ArrayList<Opinion>) article.getGoldStandardOpinions().clone();
+			
+			HashMap<String, Opinion> extractedOpinions = (HashMap<String, Opinion>) article.getExtractedOpinions().clone();
+			HashMap<String, Opinion> goldStandardOpinions = (HashMap<String, Opinion>) article.getGoldStandardOpinions().clone();
+
+			//TreeSet<Integer> extractedIndexes = new TreeSet<Integer>();
+			//TreeSet<Integer> goldIndexes = new TreeSet<Integer>();
+
+			double truePositives = 0.0;
+
+			// Let's only evaluate how well we discovered sentences
+//			for (int i = 0; i < goldStandardOpinions.size(); i++)
+//			{
+//				for (int j = 0; j < extractedOpinions.size(); j++)
+//				{
+//					Opinion gold = goldStandardOpinions.get(i);
+//					Opinion extracted = extractedOpinions.get(j);
+//
+//					// TODO: Change this to evaluate everything--sentence, opinion, agent, and
+//					// target
+//					if (gold.sentence.equals(extracted.sentence) && !extractedIndexes.contains(j)
+//							&& !goldIndexes.contains(i))
+//					{
+//						truePositives += 1;
+//						extractedIndexes.add(j);
+//						goldIndexes.add(i);
+//					}
+//				}
+//			}
+			
+			Set<String> keys = extractedOpinions.keySet();
+			for(String gold_sent: goldStandardOpinions.keySet()) {
+				if(keys.contains(gold_sent)) {
+					truePositives += 1;	
+				}				
+			}
+
+			// System.out.println(truePositives + "\t" + goldStandardOpinions.size() + "\t"
+			// + extractedOpinions.size());
+
+			double precision = truePositives / extractedOpinions.size();
+			double recall = truePositives / goldStandardOpinions.size();
+			double fscore = 2 * ((precision * recall) / (precision + recall));
+
+			System.out.println(article.getDocumentName() + "\t" + precision + "\t" + recall + "\t" + fscore);
+			totalFScore += fscore;
+		}
+
+		System.out.println("\nTOTAL FSCORE: " + totalFScore / articles.size());
+	}
+	
+	////////////////////
+	// HELPER METHODS //
+	////////////////////
+	
 	private static void getSentiWordNet()
 	{
 		sentiWordNetDictionary = new SentiWordNetDictionary();
@@ -573,82 +706,6 @@ public class Main {
 			e.printStackTrace();
 		}
 	}
-
-	private static boolean sentenceContainsOpinion(Sentence sentence)
-	{
-		String name = "some_file.vector";
-		createSingleSentenceVectorFile(sentence, name);
-
-		try
-		{
-			Runtime.getRuntime().exec("./liblinear_predict " + name + " " + SENTENCES_MODEL_FILE + " output.txt");
-			Thread.sleep(100); // To give LibLinear enough time to output to file
-			Scanner derp = new Scanner(Runtime.getRuntime().exec("cat output.txt").getInputStream());
-			int i = derp.nextInt();
-			derp.close();
-			return i == 1;
-		} catch (IOException e)
-		{
-			e.printStackTrace();
-		} catch (InterruptedException e)
-		{
-			e.printStackTrace();
-		}
-
-		return false;
-	}
-
-	private static void evaluateExtractedOpinions(ArrayList<NewsArticle> articles)
-	{
-		// So we're using F Score. That means we care about two things:
-		// Precision: How many did I extract were correct?
-		// Recall: How many correct ones were successfully extracted?
-
-		double totalFScore = 0.0;
-
-		System.out.println("Name\tPrecision\tRecall\tFScore");
-
-		for (NewsArticle article : articles)
-		{
-			ArrayList<Opinion> extractedOpinions = (ArrayList<Opinion>) article.getExtractedOpinions().clone();
-			ArrayList<Opinion> goldStandardOpinions = (ArrayList<Opinion>) article.getGoldStandardOpinions().clone();
-
-			TreeSet<Integer> extractedIndexes = new TreeSet<Integer>();
-			TreeSet<Integer> goldIndexes = new TreeSet<Integer>();
-
-			double truePositives = 0.0;
-
-			// Let's only evaluate how well we discovered sentences
-			for (int i = 0; i < goldStandardOpinions.size(); i++)
-			{
-				for (int j = 0; j < extractedOpinions.size(); j++)
-				{
-					Opinion gold = goldStandardOpinions.get(i);
-					Opinion extracted = extractedOpinions.get(j);
-
-					// TODO: Change this to evaluate everything--sentence, opinion, agent, and
-					// target
-					if (gold.sentence.equals(extracted.sentence) && !extractedIndexes.contains(j)
-							&& !goldIndexes.contains(i))
-					{
-						truePositives += 1;
-						extractedIndexes.add(j);
-						goldIndexes.add(i);
-					}
-				}
-			}
-
-			// System.out.println(truePositives + "\t" + goldStandardOpinions.size() + "\t"
-			// + extractedOpinions.size());
-
-			double precision = truePositives / extractedOpinions.size();
-			double recall = truePositives / goldStandardOpinions.size();
-			double fscore = 2 * ((precision * recall) / (precision + recall));
-
-			System.out.println(article.getDocumentName() + "\t" + precision + "\t" + recall + "\t" + fscore);
-			totalFScore += fscore;
-		}
-
-		System.out.println("\nTOTAL FSCORE: " + totalFScore / articles.size());
-	}
+	
+	
 }

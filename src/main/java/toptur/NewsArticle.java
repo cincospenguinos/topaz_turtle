@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Scanner;
 
 /**
@@ -15,8 +16,10 @@ public class NewsArticle {
 
     private String documentName;
     private String fullText;
-    private ArrayList<Opinion> extractedOpinions; // opinions found in the document
-    private ArrayList<Opinion> goldStandardOpinions; // hand annotated opinions
+    //private ArrayList<Opinion> extractedOpinions; // opinions found in the document
+    //private ArrayList<Opinion> goldStandardOpinions; // hand annotated opinions
+    private HashMap<String, Opinion> extractedOpinions;
+    private HashMap<String, Opinion> goldStandardOpinions;
 
     public NewsArticle(File f) {
         documentName = f.getName();
@@ -38,17 +41,24 @@ public class NewsArticle {
             System.exit(1);
         }
 
-        extractedOpinions = new ArrayList<Opinion>();
-        goldStandardOpinions = new ArrayList<Opinion>();
+        //extractedOpinions = new ArrayList<Opinion>();
+        //goldStandardOpinions = new ArrayList<Opinion>();
+        extractedOpinions = new HashMap<String, Opinion>();
+        goldStandardOpinions = new HashMap<String, Opinion>();
     }
 
     private NewsArticle(String name, String _fullText, Opinion[] goldStandards) {
         documentName = name;
         fullText = _fullText;
-        extractedOpinions = new ArrayList<Opinion>();
-        goldStandardOpinions = new ArrayList<Opinion>();
-
-        goldStandardOpinions.addAll(Arrays.asList(goldStandards));
+        extractedOpinions = new HashMap<String, Opinion>();
+        goldStandardOpinions = new HashMap<String, Opinion>();
+        
+        //goldStandardOpinions = new ArrayList<Opinion>();
+        //goldStandardOpinions.addAll(Arrays.asList(goldStandards));
+        
+        for (Opinion o : goldStandards) {
+        		goldStandardOpinions.put(o.sentence, o);
+        }
     }
 
     public String toString() {
@@ -57,17 +67,17 @@ public class NewsArticle {
         builder.append(documentName);
         builder.append("\n\n");
 
-        for (Opinion o : extractedOpinions) {
+        for (String o : extractedOpinions.keySet()) {
             builder.append("\tOpinion\t");
-            builder.append(o.opinion);
+            builder.append(extractedOpinions.get(o).opinion);
             builder.append("\n\tAgent\t");
-            builder.append(o.agent);
+            builder.append(extractedOpinions.get(o).agent);
             builder.append("\n\tTarget\t");
-            builder.append(o.target);
+            builder.append(extractedOpinions.get(o).target);
             builder.append("\n\tSentiment\t");
-            builder.append(o.sentiment);
+            builder.append(extractedOpinions.get(o).sentiment);
             builder.append("\n\tSentence\t");
-            builder.append(o.sentence);
+            builder.append(extractedOpinions.get(o).sentence);
             builder.append("\n\n");
         }
 
@@ -118,17 +128,20 @@ public class NewsArticle {
      * @return
      */
     public boolean sentenceHasOpinion(String sentence) {
-        for (Opinion o : goldStandardOpinions)
-            if (o.sentence.equalsIgnoreCase(sentence))
-                return true;
-
+//        for (Opinion o : goldStandardOpinions)
+//            if (o.sentence.equalsIgnoreCase(sentence))
+//                return true;
+    		if(goldStandardOpinions.containsKey(sentence))
+    			return true;
         return false;
     }
     
     public String getOpinionAgent(String sentence) {
-    		for (Opinion o: goldStandardOpinions)
-    			if (o.sentence.equalsIgnoreCase(sentence))
-    				return o.agent;
+//    		for (Opinion o: goldStandardOpinions)
+//    			if (o.sentence.equalsIgnoreCase(sentence))
+//    				return o.agent;
+	    	if(goldStandardOpinions.containsKey(sentence))
+				return goldStandardOpinions.get(sentence).agent;
     		return "Null";
     }
 
@@ -136,15 +149,15 @@ public class NewsArticle {
         return fullText;
     }
 
-    public ArrayList<Opinion> getGoldStandardOpinions() {
+    public HashMap<String, Opinion> getGoldStandardOpinions() {
         return goldStandardOpinions;
     }
 
     public void addExtractedOpinion(Opinion o) {
-        extractedOpinions.add(o);
+        extractedOpinions.put(o.sentence, o);
     }
 
-    public ArrayList<Opinion> getExtractedOpinions() {
+    public HashMap<String, Opinion> getExtractedOpinions() {
         return extractedOpinions;
     }
 
