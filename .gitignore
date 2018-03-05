@@ -10,3 +10,4 @@ liblinear_*
 *.txt
 **/**/*.a
 **/**/*.o
+.toptur_data/

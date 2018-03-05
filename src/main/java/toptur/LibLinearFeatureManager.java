@@ -1,6 +1,15 @@
 package toptur;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.Scanner;
 import java.util.TreeMap;
 
 public class LibLinearFeatureManager {
@@ -19,11 +28,47 @@ public class LibLinearFeatureManager {
             ids.put(f, new TreeMap<Object, Integer>());
     }
 
-    public static LibLinearFeatureManager getInstance() {
-        if (instance == null)
+    public static LibLinearFeatureManager getInstance(String filename) {
+        if (instance == null) {
             instance = new LibLinearFeatureManager();
 
+            if (new File(filename).exists()) {
+                Gson gson = new Gson();
+                try {
+                    Scanner s = new Scanner(new File(filename));
+
+                    while(s.hasNextLine()) {
+                        LibLinearFeature f = LibLinearFeature.valueOf(s.nextLine().trim());
+                        TreeMap<Object, Integer> map = gson.fromJson(s.nextLine(), new TypeToken<TreeMap<Object, Integer>>(){}.getType());
+
+                        instance.ids.put(f, map);
+                    }
+
+                    s.close();
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
         return instance;
+    }
+
+    public static void saveInstance(String filename) {
+        Gson gson = new Gson();
+
+        try {
+            PrintWriter writer = new PrintWriter(new File(filename));
+
+            for (Map.Entry<LibLinearFeature, TreeMap<Object, Integer>> entry : instance.ids.entrySet()) {
+                writer.println(entry.getKey());
+                writer.println(gson.toJson(entry.getValue(), new TypeToken<TreeMap<Object, Integer>>(){}.getType()));
+            }
+
+            writer.flush();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
     }
 
     /**

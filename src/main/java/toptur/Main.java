@@ -1,14 +1,8 @@
 package toptur;
 
-import edu.stanford.nlp.ling.CoreAnnotations;
-import edu.stanford.nlp.pipeline.Annotation;
 import edu.stanford.nlp.pipeline.StanfordCoreNLP;
 import edu.stanford.nlp.simple.Document;
 import edu.stanford.nlp.simple.Sentence;
-import edu.stanford.nlp.simple.Token;
-import edu.stanford.nlp.trees.Tree;
-import edu.stanford.nlp.trees.TreeCoreAnnotations;
-import edu.stanford.nlp.util.CoreMap;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -41,6 +35,9 @@ public class Main {
 	public static final String TARGET_MODEL_FILE = ".liblinear_models/target.model";
 	public static final String TARGET_TEST_FILE = "target_test.vector";
 
+	public static final String TOPTUR_DATA = ".toptur_data";
+	public static final String LIB_LINEAR_FEATURE_MANAGER_FILE = TOPTUR_DATA + "/lib_linear_feature_manager.json";
+
     public static final String SENTI_WORD_NET_FILE = "sentiwordnet.txt";
 
     private static SentiWordNetDictionary sentiWordNetDictionary;
@@ -63,33 +60,33 @@ public class Main {
             ArrayList<NewsArticle> testArticles = getAllDocsFrom(TEST_DOCS);
 
             // Train to detect opinionated sentences
-            createVectorFile(devArticles, SENTENCES_TRAINING_FILE);
-            createVectorFile(testArticles, SENTENCES_TEST_FILE);
+            createSentencesVectorFile(devArticles, SENTENCES_TRAINING_FILE);
             trainLibLinear(SENTENCES_TRAINING_FILE, SENTENCES_MODEL_FILE);
-            testLibLinear(SENTENCES_TEST_FILE, SENTENCES_MODEL_FILE, "/dev/null");
+            testLibLinear(SENTENCES_TRAINING_FILE, SENTENCES_MODEL_FILE, "/dev/null");
 
 			// Train to detect opinion agents
 			createVectorFileAgent(devArticles, AGENT_TRAINING_FILE);
-			createVectorFileAgent(testArticles, AGENT_TEST_FILE);
 			trainLibLinear(AGENT_TRAINING_FILE, AGENT_MODEL_FILE);
-			testLibLinear(AGENT_TEST_FILE, AGENT_MODEL_FILE, "/dev/null");
+            testLibLinear(AGENT_TRAINING_FILE, AGENT_MODEL_FILE, "/dev/null");
 
 			// Train to detect opinion agents
 			createVectorFileTarget(devArticles, TARGET_TRAINING_FILE);
-			createVectorFileTarget(testArticles, TARGET_TEST_FILE);
 			trainLibLinear(TARGET_TRAINING_FILE, TARGET_MODEL_FILE);
-			testLibLinear(TARGET_TEST_FILE, TARGET_MODEL_FILE, "/dev/null");
+            testLibLinear(TARGET_TRAINING_FILE, TARGET_MODEL_FILE, "/dev/null");
 
-//            for (NewsArticle a : devArticles) {
-//                for (Opinion o : a.getGoldStandardOpinions())
-//                    System.out.println(o.opinion + "\t" + o.sentence);
-//            }
+            LibLinearFeatureManager.saveInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
         } else if (task.equals("test")) {
 			ArrayList<NewsArticle> devArticles = getAllDocsFrom(DEV_DOCS);
             ArrayList<NewsArticle> testArticles = getAllDocsFrom(TEST_DOCS);
-//            createVectorFile(testArticles, SENTENCES_TEST_FILE);
+
+            createSentencesVectorFile(testArticles, SENTENCES_TEST_FILE);
+            createVectorFileAgent(testArticles, AGENT_TEST_FILE);
+            createVectorFileTarget(testArticles, TARGET_TEST_FILE);
+
             testLibLinear(SENTENCES_TEST_FILE, SENTENCES_MODEL_FILE, "/dev/null");
+            testLibLinear(AGENT_TEST_FILE, AGENT_MODEL_FILE, "/dev/null");
+            testLibLinear(TARGET_TEST_FILE, TARGET_MODEL_FILE, "/dev/null");
 
             // Extract the opinions
             for (NewsArticle a : testArticles) {
@@ -199,10 +196,10 @@ public class Main {
 	 * @param articles
 	 * @param nameOfVectorFile
 	 */
-	private static void createVectorFile(ArrayList<NewsArticle> articles, String nameOfVectorFile)
+	private static void createSentencesVectorFile(ArrayList<NewsArticle> articles, String nameOfVectorFile)
 	{
 		StringBuilder vectorFileBuilder = new StringBuilder();
-		LibLinearFeatureManager libLinearFeatureManager = LibLinearFeatureManager.getInstance();
+		LibLinearFeatureManager libLinearFeatureManager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
 		for (NewsArticle article : articles)
 		{
@@ -237,7 +234,7 @@ public class Main {
 						}
 						break;
 					case OBJECTIVITY_OF_SENTENCE:
-						id = libLinearFeatureManager.getIdFor(feature, true);
+						id = libLinearFeatureManager.getIdFor(feature, "");
 						double objectivity = 0.0;
 
 						for (String w : words)
@@ -302,7 +299,7 @@ public class Main {
      */
     private static void createVectorFileAgent(ArrayList<NewsArticle> articles, String nameOfVectorFile) {
         StringBuilder vectorFileBuilder = new StringBuilder();
-        LibLinearFeatureManager libLinearFeatureManager = LibLinearFeatureManager.getInstance();
+        LibLinearFeatureManager libLinearFeatureManager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
         for (NewsArticle article : articles) {
             Document doc = new Document(article.getFullText());
@@ -366,8 +363,8 @@ public class Main {
             e.printStackTrace();
         }
     }
-    
-    
+
+
     /**
      * Generates a vector file in LibLinear format for whatever articles are provided.
      *
@@ -376,35 +373,35 @@ public class Main {
      */
     private static void createVectorFileTarget(ArrayList<NewsArticle> articles, String nameOfVectorFile) {
         StringBuilder vectorFileBuilder = new StringBuilder();
-        LibLinearFeatureManager libLinearFeatureManager = LibLinearFeatureManager.getInstance();
+        LibLinearFeatureManager libLinearFeatureManager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
         for (NewsArticle article : articles) {
             Document doc = new Document(article.getFullText());
 
             for (Sentence s : doc.sentences()) {
-            	
+
             		if (article.sentenceHasOpinion(s.toString())) {
-            			
+
             			String agent = article.getOpinionAgent(s.toString());
-            	
+
             			for(String word : s.words()) {
 
 		                StringBuilder vectorLineBuilder = new StringBuilder();
 		                TreeMap<Integer, Object> libLinearFeatureVector = new TreeMap<Integer, Object>();
-		
+
 		                // The label for this sentence
 		                if (word.equalsIgnoreCase(agent))
 		                    vectorLineBuilder.append(1);
 		                else
 		                		vectorLineBuilder.append(0);
-		                
-		
+
+
 		                List<String> words = s.words();
-		
+
 		                // Creating the feature vectors
 		                for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature.values()) {
 		                    int id;
-		
+
 		                    switch(feature) {
 		                        case CONTAINS_UNIGRAM:
 		                            for (String w : words) {
@@ -414,18 +411,18 @@ public class Main {
 		                            break;
 		                    }
 		                }
-		
+
 		                for (Map.Entry<Integer, Object> e : libLinearFeatureVector.entrySet()) {
 		                    vectorLineBuilder.append(" ");
 		                    vectorLineBuilder.append(e.getKey());
 		                    vectorLineBuilder.append(":");
-		
+
 		                    if (e.getValue() instanceof Boolean)
 		                        vectorLineBuilder.append(1);
 		                    else
 		                        vectorLineBuilder.append(e.getValue());
 		                }
-		
+
 		                vectorFileBuilder.append(vectorLineBuilder.toString());
 		                vectorFileBuilder.append("\n");
 		            }
@@ -442,10 +439,10 @@ public class Main {
         }
     }
 
-	private static void createVectorFile(Sentence sentence, String nameOfVectorFile)
+	private static void createSingleSentenceVectorFile(Sentence sentence, String nameOfVectorFile)
 	{
 		StringBuilder vectorFileBuilder = new StringBuilder();
-		LibLinearFeatureManager libLinearFeatureManager = LibLinearFeatureManager.getInstance();
+		LibLinearFeatureManager libLinearFeatureManager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
 		StringBuilder vectorLineBuilder = new StringBuilder();
 		TreeMap<Integer, Object> libLinearFeatureVector = new TreeMap<Integer, Object>();
@@ -467,7 +464,7 @@ public class Main {
 				}
 				break;
 			case OBJECTIVITY_OF_SENTENCE:
-				int id = libLinearFeatureManager.getIdFor(feature, true);
+				int id = libLinearFeatureManager.getIdFor(feature, "");
 				double objectivity = 0.0;
 
 				for (String w : words)
@@ -586,7 +583,7 @@ public class Main {
 	private static boolean sentenceContainsOpinion(Sentence sentence)
 	{
 		String name = "some_file.vector";
-		createVectorFile(sentence, name);
+		createSingleSentenceVectorFile(sentence, name);
 
 		try
 		{
