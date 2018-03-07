@@ -39,6 +39,10 @@ public class Main {
 	public static final String TARGET_MODEL_FILE = ".liblinear_models/target.model";
 	public static final String TARGET_TEST_FILE = "target_test.vector";
 
+	public static final String OPINION_TRAINING_FILE = "opinion_train.vector";
+	public static final String OPINION_TEST_FILE = "opinion_test.vector";
+	public static final String OPINION_MODEL_FILE = ".liblinear_models/opinion.model";
+
 	public static final String TOPTUR_DATA = ".toptur_data";
 	public static final String LIB_LINEAR_FEATURE_MANAGER_FILE = TOPTUR_DATA + "/lib_linear_feature_manager.json";
 
@@ -78,6 +82,11 @@ public class Main {
 			trainLibLinear(TARGET_TRAINING_FILE, TARGET_MODEL_FILE);
             testLibLinear(TARGET_TRAINING_FILE, TARGET_MODEL_FILE, "/dev/null");
 
+            // Train to detect opinions in the sentence
+            createOpinionVectorFile(devArticles, OPINION_TRAINING_FILE);
+            trainLibLinear(OPINION_TRAINING_FILE, OPINION_MODEL_FILE);
+            testLibLinear(OPINION_TRAINING_FILE, OPINION_MODEL_FILE, "/dev/null");
+
             LibLinearFeatureManager.saveInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
         } else if (task.equals("test")) {
@@ -87,21 +96,29 @@ public class Main {
             createSentencesVectorFile(testArticles, SENTENCES_TEST_FILE);
             createVectorFileAgent(testArticles, AGENT_TEST_FILE);
             createVectorFileTarget(testArticles, TARGET_TEST_FILE);
+            createOpinionVectorFile(testArticles, OPINION_TEST_FILE);
 
             testLibLinear(SENTENCES_TEST_FILE, SENTENCES_MODEL_FILE, "/dev/null");
             testLibLinear(AGENT_TEST_FILE, AGENT_MODEL_FILE, "/dev/null");
             testLibLinear(TARGET_TEST_FILE, TARGET_MODEL_FILE, "/dev/null");
+            testLibLinear(OPINION_TEST_FILE, OPINION_MODEL_FILE, "/dev/null");
 
             // Extract the opinions
+            // Let's time how long it takes
+            System.out.println("Starting extraction...");
+            long startTime = System.currentTimeMillis();
             for (NewsArticle a : testArticles)
                 extractAllOpinionsFor(a);
+            long endTime = System.currentTimeMillis();
+
+            System.out.println(((double) endTime - startTime) / 1000.0  + " seconds");
 
             evaluateExtractedOpinions(testArticles);
 
-			for (NewsArticle a : devArticles)
-				extractAllOpinionsFor(a);
-
-			evaluateExtractedOpinions(devArticles);
+//			for (NewsArticle a : devArticles)
+//				extractAllOpinionsFor(a);
+//
+//			evaluateExtractedOpinions(devArticles);
 
         } else if (task.equals("extract")) {
             for (int i = 1; i < args.length; i++) {
@@ -416,7 +433,7 @@ public class Main {
      * 
      * This vector file contains features for identifying the Target of an opinion. 
      * 
-     * @param articles
+     * @param sentence, nameOfVectorFile
      * @param nameOfVectorFile
      */
 	private static void createSingleSentenceVectorFile(Sentence sentence, String nameOfVectorFile)
@@ -486,6 +503,126 @@ public class Main {
 		}
 	}
 
+
+	private static void createSingleWordVectorFile(String word, String pos, String fileName) {
+	    LibLinearFeatureManager manager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
+	    StringBuilder vectorFileBuilder = new StringBuilder();
+
+        TreeMap<Integer, String> stupidMap = new TreeMap<Integer, String>();
+        for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature.values()) {
+            int id;
+            switch(feature) {
+//                case PREVIOUS_UNIGRAM:
+//                    // TODO: This
+//                    break;
+                case THIS_UNIGRAM:
+                    id = manager.getIdFor(feature, word);
+                    stupidMap.put(id, id + ":1");
+                    break;
+//                case NEXT_UNIGRAM:
+//                    // TODO: This
+//                    break;
+                case PART_OF_SPEECH:
+                    id = manager.getIdFor(feature, pos);
+                    stupidMap.put(id, id + ":1");
+                    break;
+                case OBJECTIVITY_OF_WORD:
+                    id = manager.getIdFor(feature, "");
+                    double objectivity = sentiWordNetDictionary.getObjectivityOf(word);
+                    stupidMap.put(id, id + ":" + objectivity);
+                    break;
+            }
+        }
+
+        for (String s : stupidMap.values()) {
+            vectorFileBuilder.append(s);
+            vectorFileBuilder.append(' ');
+        }
+    }
+
+	private static void createOpinionVectorFile(ArrayList<NewsArticle> articles, String opinionTrainingFile) {
+	    LibLinearFeatureManager manager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
+        StringBuilder vectorFileBuilder = new StringBuilder();
+
+	    // Here we're going to do your standard BIO labeling to extract the opinion
+	    for (NewsArticle a : articles) {
+            HashMap<String, Opinion> goldStandard = a.getGoldStandardOpinions();
+
+            for (Map.Entry<String, Opinion> e : goldStandard.entrySet()) {
+                Sentence sentence = new Document(e.getKey()).sentences().get(0);
+                String[] opinionWords = e.getValue().opinion.split(" ");
+
+                int previousLabel = -1;
+                for (int i = 0; i < sentence.words().size(); i++) {
+                    String word = sentence.word(i);
+                    String pos = sentence.posTag(i);
+
+                    // O = 0, B = 1, I = 2
+                    int label = -1;
+                    for (int j = 0; j < opinionWords.length; j++) {
+                        if (word.equals(opinionWords[j]) && j == 0 && previousLabel == 0) {
+                            label = 1;
+                            break;
+                        } else if (word.equals(opinionWords[j]) && previousLabel == 1) {
+                            label = 2;
+                            break;
+                        }
+                    }
+
+                    if (label == -1) label = 0;
+
+                    vectorFileBuilder.append(label);
+                    vectorFileBuilder.append(" ");
+
+                    previousLabel = label;
+
+                    TreeMap<Integer, String> stupidMap = new TreeMap<Integer, String>();
+                    for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature.values()) {
+                        int id;
+                        switch(feature) {
+//                            case PREVIOUS_UNIGRAM:
+//                                // TODO: This
+//                                break;
+                            case THIS_UNIGRAM:
+                                id = manager.getIdFor(feature, word);
+                                stupidMap.put(id, id + ":1");
+                                break;
+//                            case NEXT_UNIGRAM:
+//                                // TODO: This
+//                                break;
+                            case PART_OF_SPEECH:
+                                id = manager.getIdFor(feature, pos);
+                                stupidMap.put(id, id + ":1");
+                                break;
+                            case OBJECTIVITY_OF_WORD:
+                                id = manager.getIdFor(feature, "");
+                                double objectivity = sentiWordNetDictionary.getObjectivityOf(word);
+                                stupidMap.put(id, id + ":" + objectivity);
+                                break;
+                        }
+                    }
+
+                    for (String s : stupidMap.values()) {
+                        vectorFileBuilder.append(s);
+                        vectorFileBuilder.append(' ');
+                    }
+
+                    vectorFileBuilder.append('\n');
+                }
+            }
+        }
+
+
+        try {
+            PrintWriter vectorFile = new PrintWriter(opinionTrainingFile);
+            vectorFile.print(vectorFileBuilder.toString().trim());
+            vectorFile.flush();
+            vectorFile.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
+
 	///////////////////////
 	// TRAIN CLASSIFIERS //
 	///////////////////////
@@ -517,14 +654,17 @@ public class Main {
 			Scanner s = new Scanner(runtime
 					.exec("./liblinear_predict " + testVectorFileName + " " + modelFileName + " " + outputFileName)
 					.getInputStream());
+			Thread.sleep(20);
 			while (s.hasNextLine())
 				System.out.println(s.nextLine());
 
 		} catch (IOException e)
 		{
 			e.printStackTrace();
-		}
-	}
+		} catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
 
 	//////////////////////////////////////
 	// EXTRACT/EVALUATE WITH CLASSIFIER //
@@ -565,10 +705,8 @@ public class Main {
                 o.sentence = s.toString();
                 o.opinion = extractOpinionFrom(s);
 
-                if (o.opinion == null)
-                    continue;
-
-//						System.out.println(o.opinion + "\t" + s.posTag(s.words().indexOf(o.opinion)));
+//                if (o.opinion == null)
+//                    continue;
 
                 // TODO: Grab the target/agent/etc. from the sentence
                 article.addExtractedOpinion(o);
@@ -576,28 +714,46 @@ public class Main {
         }
     }
 
-    	// Evaluation, finds the most objective word in the sentence
+    /**
+     * Extracts the opinion from the sentence provided.
+     *
+     * @param s
+     * @return String or null
+     */
 	private static String extractOpinionFrom(Sentence s) {
-		int index = -1;
-		double objectivity = 1.0;
-		for (int i = 0; i < s.words().size(); i++) {
-			String w = s.word(i);
+        String name = "some_file.vector";
 
-			if (sentiWordNetDictionary.hasWord(w) && sentiWordNetDictionary.getObjectivityOf(w) < objectivity) {
-				index = i;
-				objectivity = sentiWordNetDictionary.getObjectivityOf(w);
-			}
-		}
+        int previousTag = 0;
 
-		if (index == -1 || objectivity >= 0.95) // word is null or word too objective? Probably not an opinion
-			return null;
+        StringBuilder opinionBuilder = new StringBuilder();
+        for (int i = 0; i < s.words().size(); i++) {
+            String word = s.word(i);
+            String pos = s.posTag(i);
+            createSingleWordVectorFile(word, pos, name);
 
-//		Annotation document = new Annotation(s.toString());
-//		stanfordCoreNLP.annotate(document);
-//		List<CoreMap> list = document.get(CoreAnnotations.SentencesAnnotation.class);
-//		Tree parseTree = list.get(0).get(TreeCoreAnnotations.TreeAnnotation.class);
+            try {
+                Runtime.getRuntime().exec("./liblinear_predict " + name + " " + SENTENCES_MODEL_FILE + " output.txt");
+                Thread.sleep(25); // To give LibLinear enough time to output to file
+                Scanner derp = new Scanner(Runtime.getRuntime().exec("cat output.txt").getInputStream());
+                int j = derp.nextInt();
+                derp.close();
 
-		return s.word(index);
+                if (j == 0 && previousTag == 2) {
+                    return opinionBuilder.toString().trim();
+                } else {
+                    opinionBuilder.append(word);
+                    opinionBuilder.append(" ");
+                }
+
+                previousTag = j;
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return null;
 	}
 	
 	// Evaluate
@@ -607,55 +763,32 @@ public class Main {
 		// Precision: How many did I extract were correct?
 		// Recall: How many correct ones were successfully extracted?
 
-		double totalFScore = 0.0;
+		double totalFScore = 0.0; // TODO: This needs to be fixed!
 
 		System.out.println("Name\tPrecision\tRecall\tFScore");
 
-		for (NewsArticle article : articles)
-		{
-			//ArrayList<Opinion> extractedOpinions = (ArrayList<Opinion>) article.getExtractedOpinions().clone();
-			//ArrayList<Opinion> goldStandardOpinions = (ArrayList<Opinion>) article.getGoldStandardOpinions().clone();
-			
+		for (NewsArticle article : articles) {
 			HashMap<String, Opinion> extractedOpinions = (HashMap<String, Opinion>) article.getExtractedOpinions().clone();
 			HashMap<String, Opinion> goldStandardOpinions = (HashMap<String, Opinion>) article.getGoldStandardOpinions().clone();
 
-			//TreeSet<Integer> extractedIndexes = new TreeSet<Integer>();
-			//TreeSet<Integer> goldIndexes = new TreeSet<Integer>();
-
 			double truePositives = 0.0;
 
-			// Let's only evaluate how well we discovered sentences
-//			for (int i = 0; i < goldStandardOpinions.size(); i++)
-//			{
-//				for (int j = 0; j < extractedOpinions.size(); j++)
-//				{
-//					Opinion gold = goldStandardOpinions.get(i);
-//					Opinion extracted = extractedOpinions.get(j);
-//
-//					// TODO: Change this to evaluate everything--sentence, opinion, agent, and
-//					// target
-//					if (gold.sentence.equals(extracted.sentence) && !extractedIndexes.contains(j)
-//							&& !goldIndexes.contains(i))
-//					{
-//						truePositives += 1;
-//						extractedIndexes.add(j);
-//						goldIndexes.add(i);
-//					}
-//				}
-//			}
-			
-			Set<String> keys = extractedOpinions.keySet();
-			for(String gold_sent: goldStandardOpinions.keySet()) {
-				if(keys.contains(gold_sent)) {
-					truePositives += 1;	
-				}				
-			}
+			TreeSet<String> correct = new TreeSet<String>();
 
-			// System.out.println(truePositives + "\t" + goldStandardOpinions.size() + "\t"
-			// + extractedOpinions.size());
+			for (Opinion extracted : extractedOpinions.values()) {
+			    if (goldStandardOpinions.containsValue(extracted)) {
+			        correct.add(extracted.sentence);
+			        truePositives += 1.0;
+                }
+            }
 
-			double precision = truePositives / extractedOpinions.size();
-			double recall = truePositives / goldStandardOpinions.size();
+            for (String s : correct) {
+			    extractedOpinions.remove(s);
+			    goldStandardOpinions.remove(s);
+            }
+
+			double precision = truePositives / extractedOpinions.size() + correct.size();
+			double recall = truePositives / goldStandardOpinions.size() + correct.size();
 			double fscore = 2 * ((precision * recall) / (precision + recall));
 
 			System.out.println(article.getDocumentName() + "\t" + precision + "\t" + recall + "\t" + fscore);

@@ -16,8 +16,8 @@ public class NewsArticle {
 
     private String documentName;
     private String fullText;
-    //private ArrayList<Opinion> extractedOpinions; // opinions found in the document
-    //private ArrayList<Opinion> goldStandardOpinions; // hand annotated opinions
+
+    // Maps sentence to opinion object
     private HashMap<String, Opinion> extractedOpinions;
     private HashMap<String, Opinion> goldStandardOpinions;
 
@@ -41,8 +41,6 @@ public class NewsArticle {
             System.exit(1);
         }
 
-        //extractedOpinions = new ArrayList<Opinion>();
-        //goldStandardOpinions = new ArrayList<Opinion>();
         extractedOpinions = new HashMap<String, Opinion>();
         goldStandardOpinions = new HashMap<String, Opinion>();
     }
@@ -52,9 +50,6 @@ public class NewsArticle {
         fullText = _fullText;
         extractedOpinions = new HashMap<String, Opinion>();
         goldStandardOpinions = new HashMap<String, Opinion>();
-        
-        //goldStandardOpinions = new ArrayList<Opinion>();
-        //goldStandardOpinions.addAll(Arrays.asList(goldStandards));
         
         for (Opinion o : goldStandards) {
         		goldStandardOpinions.put(o.sentence, o);
