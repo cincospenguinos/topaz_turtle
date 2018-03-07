@@ -4,12 +4,12 @@ My project for information extraction. This README will explain more about it. E
 
 ## What do we have to do next?
 
-- [x] Create classifier to detect opinions in sentences
-- [x] Get the sentence classifier to be at least 50% accurate
 - [ ] Extract the opinion in the sentence
 - [ ] Extract the agent in the sentence
 - [ ] Extract the target in the sentence
 - [ ] Figure out the polarity of the opinion
+- [ ] Add another classifier--perhaps a set of decision stumps?
+- [ ] Add a bunch of features
 
 ## Progress
 
