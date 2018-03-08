@@ -18,7 +18,7 @@ public class LibLinearFeatureManager {
         CONTAINS_UNIGRAM, OBJECTIVITY_OF_SENTENCE, /*HAS_WORD_RELATED_TO_OTHER_WORD*/
 
         // These are for extracting the actual opinion words
-        PREVIOUS_UNIGRAM, THIS_UNIGRAM, NEXT_UNIGRAM, PART_OF_SPEECH, OBJECTIVITY_OF_WORD
+        PREVIOUS_UNIGRAM, THIS_UNIGRAM, NEXT_UNIGRAM, PREVIOUS_PART_OF_SPEECH, THIS_PART_OF_SPEECH, NEXT_PART_OF_SPEECH, OBJECTIVITY_OF_WORD
     }
 
     private static volatile LibLinearFeatureManager instance;

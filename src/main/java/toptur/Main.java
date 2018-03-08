@@ -51,6 +51,11 @@ public class Main {
     private static SentiWordNetDictionary sentiWordNetDictionary;
     private static volatile StanfordCoreNLP stanfordCoreNLP;
 
+    private static final String PHI_WORD = "__PHI__";
+    private static final String PHI_POS = "__PHI_POS__";
+	private static final String OMEGA_WORD = "__OMEGA__";
+	private static final String OMEGA_POS = "__OMEGA_POS__";
+
 
     //////////////////////
     //       MAIN       //
@@ -504,31 +509,43 @@ public class Main {
 	}
 
 
-	private static void createSingleWordVectorFile(String word, String pos, String fileName) {
+	private static void createSingleWordVectorFile(String previousWord, String thisWord, String nextWord, String previousPos, String thisPos, String nextPos, String fileName) {
 	    LibLinearFeatureManager manager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 	    StringBuilder vectorFileBuilder = new StringBuilder();
+	    vectorFileBuilder.append(0);
+	    vectorFileBuilder.append(' ');
 
         TreeMap<Integer, String> stupidMap = new TreeMap<Integer, String>();
         for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature.values()) {
             int id;
             switch(feature) {
-//                case PREVIOUS_UNIGRAM:
-//                    // TODO: This
-//                    break;
+				case PREVIOUS_UNIGRAM:
+					id = manager.getIdFor(feature, previousWord);
+					stupidMap.put(id, id + ":1");
+					break;
                 case THIS_UNIGRAM:
-                    id = manager.getIdFor(feature, word);
+                    id = manager.getIdFor(feature, thisWord);
                     stupidMap.put(id, id + ":1");
                     break;
-//                case NEXT_UNIGRAM:
-//                    // TODO: This
-//                    break;
-                case PART_OF_SPEECH:
-                    id = manager.getIdFor(feature, pos);
+				case NEXT_UNIGRAM:
+					id = manager.getIdFor(feature, nextWord);
+					stupidMap.put(id, id + ":1");
+					break;
+				case PREVIOUS_PART_OF_SPEECH:
+					id = manager.getIdFor(feature, previousPos);
+					stupidMap.put(id, id + ":1");
+					break;
+                case THIS_PART_OF_SPEECH:
+                    id = manager.getIdFor(feature, thisPos);
                     stupidMap.put(id, id + ":1");
                     break;
+				case NEXT_PART_OF_SPEECH:
+					id = manager.getIdFor(feature, nextPos);
+					stupidMap.put(id, id + ":1");
+					break;
                 case OBJECTIVITY_OF_WORD:
                     id = manager.getIdFor(feature, "");
-                    double objectivity = sentiWordNetDictionary.getObjectivityOf(word);
+                    double objectivity = sentiWordNetDictionary.getObjectivityOf(thisWord);
                     stupidMap.put(id, id + ":" + objectivity);
                     break;
             }
@@ -538,8 +555,25 @@ public class Main {
             vectorFileBuilder.append(s);
             vectorFileBuilder.append(' ');
         }
+
+		try
+		{
+			PrintWriter vectorFile = new PrintWriter(fileName);
+			vectorFile.print(vectorFileBuilder.toString());
+			vectorFile.flush();
+			vectorFile.close();
+		} catch (FileNotFoundException e)
+		{
+			e.printStackTrace();
+		}
     }
 
+	/**
+	 * Creates the opinion vector file that uses sequence labeling for opinions.
+	 *
+	 * @param articles
+	 * @param opinionTrainingFile
+	 */
 	private static void createOpinionVectorFile(ArrayList<NewsArticle> articles, String opinionTrainingFile) {
 	    LibLinearFeatureManager manager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
         StringBuilder vectorFileBuilder = new StringBuilder();
@@ -557,6 +591,7 @@ public class Main {
                     String word = sentence.word(i);
                     String pos = sentence.posTag(i);
 
+                    // TODO: Are we sure this chunk works correctly?
                     // O = 0, B = 1, I = 2
                     int label = -1;
                     for (int j = 0; j < opinionWords.length; j++) {
@@ -580,20 +615,58 @@ public class Main {
                     for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature.values()) {
                         int id;
                         switch(feature) {
-//                            case PREVIOUS_UNIGRAM:
-//                                // TODO: This
-//                                break;
+                            case PREVIOUS_UNIGRAM:
+                            	String previous;
+
+                                if (i > 0)
+                                	previous = sentence.word(i - 1);
+                                else
+                                	previous = PHI_WORD;
+
+                                id = manager.getIdFor(feature, previous);
+                                stupidMap.put(id, id + ":1");
+                                break;
                             case THIS_UNIGRAM:
                                 id = manager.getIdFor(feature, word);
                                 stupidMap.put(id, id + ":1");
                                 break;
-//                            case NEXT_UNIGRAM:
-//                                // TODO: This
-//                                break;
-                            case PART_OF_SPEECH:
+                            case NEXT_UNIGRAM:
+								String next;
+
+								if (i < sentence.words().size() - 1)
+									next = sentence.word(i + 1);
+								else
+									next = OMEGA_WORD;
+
+								id = manager.getIdFor(feature, next);
+								stupidMap.put(id, id + ":1");
+                                break;
+							case PREVIOUS_PART_OF_SPEECH:
+								String previousPos;
+
+								if (i > 0)
+									previousPos = sentence.posTag(i - 1);
+								else
+									previousPos = PHI_POS;
+
+								id = manager.getIdFor(feature, previousPos);
+								stupidMap.put(id, id + ":1");
+								break;
+                            case THIS_PART_OF_SPEECH:
                                 id = manager.getIdFor(feature, pos);
                                 stupidMap.put(id, id + ":1");
                                 break;
+							case NEXT_PART_OF_SPEECH:
+								String nextPos;
+
+								if (i < sentence.words().size() - 1)
+									nextPos = sentence.posTag(i + 1);
+								else
+									nextPos = OMEGA_POS;
+
+								id = manager.getIdFor(feature, nextPos);
+								stupidMap.put(id, id + ":1");
+								break;
                             case OBJECTIVITY_OF_WORD:
                                 id = manager.getIdFor(feature, "");
                                 double objectivity = sentiWordNetDictionary.getObjectivityOf(word);
@@ -705,8 +778,8 @@ public class Main {
                 o.sentence = s.toString();
                 o.opinion = extractOpinionFrom(s);
 
-//                if (o.opinion == null)
-//                    continue;
+                if (o.opinion == null)
+                    continue;
 
                 // TODO: Grab the target/agent/etc. from the sentence
                 article.addExtractedOpinion(o);
@@ -727,9 +800,27 @@ public class Main {
 
         StringBuilder opinionBuilder = new StringBuilder();
         for (int i = 0; i < s.words().size(); i++) {
+        	String previousWord, nextWord, previousPos, nextPos;
+
+        	if (i > 0) {
+        		previousWord = s.word(i - 1);
+        		previousPos = s.posTag(i - 1);
+			} else {
+        		previousWord = PHI_WORD;
+				previousPos = PHI_POS;
+			}
+
+			if (i < s.words().size() - 1) {
+        		nextWord = s.word(i + 1);
+        		nextPos = s.posTag(i + 1);
+			} else {
+        		nextWord = OMEGA_WORD;
+        		nextPos = OMEGA_POS;
+			}
+
             String word = s.word(i);
             String pos = s.posTag(i);
-            createSingleWordVectorFile(word, pos, name);
+            createSingleWordVectorFile(previousWord, word, nextWord, previousPos, pos, nextPos, name);
 
             try {
                 Runtime.getRuntime().exec("./liblinear_predict " + name + " " + SENTENCES_MODEL_FILE + " output.txt");
@@ -738,7 +829,7 @@ public class Main {
                 int j = derp.nextInt();
                 derp.close();
 
-                if (j == 0 && previousTag == 2) {
+                if (j == 0 && previousTag != 0) {
                     return opinionBuilder.toString().trim();
                 } else {
                     opinionBuilder.append(word);
@@ -789,7 +880,7 @@ public class Main {
 
 			double precision = truePositives / (extractedOpinions.size() + correct.size());
 			double recall = truePositives / (goldStandardOpinions.size() + correct.size());
-			double fscore = 2 * ((precision * recall) / (precision + recall));
+			double fscore = 2 * ((precision * recall) / (Math.max(1, precision + recall)));
 
 			System.out.println(article.getDocumentName() + "\t" + precision + "\t" + recall + "\t" + fscore);
 			totalFScore += fscore;
