@@ -223,6 +223,22 @@ public class Main {
 							libLinearFeatureVector.put(id, true);
 						}
 						break;
+					case CONTAINS_BIGRAM:
+						String bigram;
+
+						for (int i = 0; i < words.size() + 1; i++) {
+							if (i == 0) {
+								bigram = PHI_WORD + " " + words.get(i);
+							} else if (i == words.size()) {
+								bigram = words.get(i - 1) + " " + OMEGA_WORD;
+							} else {
+								bigram = words.get(i - 1) + " " + words.get(i);
+							}
+
+							id = libLinearFeatureManager.getIdFor(feature, bigram);
+							libLinearFeatureVector.put(id, true);
+						}
+						break;
 					case OBJECTIVITY_OF_SENTENCE:
 						id = libLinearFeatureManager.getIdFor(feature, "");
 						double objectivity = 0.0;
@@ -462,6 +478,22 @@ public class Main {
 				for (String w : words)
 				{
 					int id = libLinearFeatureManager.getIdFor(feature, w);
+					libLinearFeatureVector.put(id, true);
+				}
+				break;
+			case CONTAINS_BIGRAM:
+				String bigram;
+
+				for (int i = 0; i < words.size() + 1; i++) {
+					if (i == 0) {
+						bigram = PHI_WORD + " " + words.get(i);
+					} else if (i == words.size()) {
+						bigram = words.get(i - 1) + " " + OMEGA_WORD;
+					} else {
+						bigram = words.get(i - 1) + " " + words.get(i);
+					}
+
+					int id = libLinearFeatureManager.getIdFor(feature, bigram);
 					libLinearFeatureVector.put(id, true);
 				}
 				break;
@@ -847,7 +879,8 @@ public class Main {
             }
         }
 
-        // Now we just need to select out of the potential opinions that we have
+        // TODO: Explore other methods of doing this
+        // Now we just need to select out of the best potential opinions that we have
 		double bestObjectiveness = Double.MAX_VALUE;
         String bestOpinion = "";
 		for (String ops : potentialOpinions) {
@@ -864,7 +897,7 @@ public class Main {
 			}
 		}
 
-		System.out.println(bestOpinion);
+//		System.out.println(bestOpinion);
 
         return bestOpinion;
 	}
