@@ -790,13 +790,15 @@ public class Main {
     /**
      * Extracts the opinion from the sentence provided.
      *
-     * @param s
+     * @param s -
      * @return String or null
      */
 	private static String extractOpinionFrom(Sentence s) {
         String name = "some_file.vector";
 
         int previousTag = 0;
+
+        TreeSet<String> potentialOpinions = new TreeSet<String>();
 
         StringBuilder opinionBuilder = new StringBuilder();
         for (int i = 0; i < s.words().size(); i++) {
@@ -830,7 +832,8 @@ public class Main {
                 derp.close();
 
                 if (j == 0 && previousTag != 0) {
-                    return opinionBuilder.toString().trim();
+                	potentialOpinions.add(opinionBuilder.toString().trim());
+                    opinionBuilder = new StringBuilder();
                 } else {
                     opinionBuilder.append(word);
                     opinionBuilder.append(" ");
@@ -844,7 +847,26 @@ public class Main {
             }
         }
 
-        return null;
+        // Now we just need to select out of the potential opinions that we have
+		double bestObjectiveness = Double.MAX_VALUE;
+        String bestOpinion = "";
+		for (String ops : potentialOpinions) {
+			double objectivity = 0.0;
+        	String[] words = ops.split(" ");
+
+        	for (String w : words)
+        		objectivity += sentiWordNetDictionary.getObjectivityOf(w);
+
+        	objectivity /= words.length;
+        	if (objectivity < bestObjectiveness) {
+        		bestObjectiveness = objectivity;
+        		bestOpinion = ops;
+			}
+		}
+
+		System.out.println(bestOpinion);
+
+        return bestOpinion;
 	}
 	
 	// Evaluate
