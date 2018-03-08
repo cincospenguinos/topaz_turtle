@@ -19,6 +19,15 @@ I'd really like to see better accuracy than that.
 * So depending on what seed you use, you get a variety of accuracies. A seed of 2 provides much higher accuracy than 1992
 * I wrote the evaluation method, which was super simple. I'm getting an FScore on sentences of 0.37855, which really isn't
 bad--I was expecting a whole lot worse. On different seeds I do get a whole lot worse though.
+* Turns out each sentence can easily have more than 1 opinion--at times, there are as many as 6. That's problematic. Here
+are the counts:
+    1. 124 sentences
+    2. 97
+    3. 42
+    4. 14
+    5. 4
+    6. 3
+We should modify the sentence gatherer accordingly.
 
 ### Features that do not help detect opinions:
 

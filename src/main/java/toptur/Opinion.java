@@ -17,7 +17,7 @@ public class Opinion {
             Opinion other = (Opinion) o;
 
             return other.sentence.equals(sentence)
-//                    && other.opinion.equals(opinion)
+                    && other.opinion.equals(opinion)
 //                    && other.agent.equals(agent)
 //                    && other.target.equals(target)
 //                    && other.sentiment.equals(sentiment)

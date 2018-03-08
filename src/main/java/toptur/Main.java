@@ -787,8 +787,8 @@ public class Main {
 			    goldStandardOpinions.remove(s);
             }
 
-			double precision = truePositives / extractedOpinions.size() + correct.size();
-			double recall = truePositives / goldStandardOpinions.size() + correct.size();
+			double precision = truePositives / (extractedOpinions.size() + correct.size());
+			double recall = truePositives / (goldStandardOpinions.size() + correct.size());
 			double fscore = 2 * ((precision * recall) / (precision + recall));
 
 			System.out.println(article.getDocumentName() + "\t" + precision + "\t" + recall + "\t" + fscore);
