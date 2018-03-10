@@ -193,8 +193,7 @@ public class Main {
 	 * @param articles
 	 * @param nameOfVectorFile
 	 */
-	private static void createSentencesVectorFile(ArrayList<NewsArticle> articles, String nameOfVectorFile)
-	{
+	private static void createSentencesVectorFile(ArrayList<NewsArticle> articles, String nameOfVectorFile) {
 		StringBuilder vectorFileBuilder = new StringBuilder();
 		LibLinearFeatureManager libLinearFeatureManager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
@@ -446,6 +445,7 @@ public class Main {
 		        }
 	        }
         }
+
         try {
             PrintWriter vectorFile = new PrintWriter(nameOfVectorFile);
             vectorFile.print(vectorFileBuilder.toString());
@@ -547,6 +547,17 @@ public class Main {
 	}
 
 
+	/**
+	 * Creates a vector file for a single word. Use for BIO labeling.
+	 *
+	 * @param previousWord
+	 * @param thisWord
+	 * @param nextWord
+	 * @param previousPos
+	 * @param thisPos
+	 * @param nextPos
+	 * @param fileName
+	 */
 	private static void createSingleWordVectorFile(String previousWord, String thisWord, String nextWord, String previousPos, String thisPos, String nextPos, String fileName) {
 	    LibLinearFeatureManager manager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 	    StringBuilder vectorFileBuilder = new StringBuilder();
@@ -776,8 +787,7 @@ public class Main {
 	// TRAIN CLASSIFIERS //
 	///////////////////////
 	
-	private static void trainLibLinear(String vectorFileName, String modelFileName)
-	{
+	private static void trainLibLinear(String vectorFileName, String modelFileName) {
 		// Now that the vector file is put together, we need to run liblinear
 		try
 		{
@@ -792,8 +802,7 @@ public class Main {
 	// TEST CLASSIFIERS //
 	//////////////////////
 	
-	private static void testLibLinear(String testVectorFileName, String modelFileName, String outputFileName)
-	{
+	private static void testLibLinear(String testVectorFileName, String modelFileName, String outputFileName) {
 		// Now that the vector file is put together, we need to run liblinear
 		try
 		{
@@ -820,8 +829,7 @@ public class Main {
 	//////////////////////////////////////
 	
 	// Evaluate
-	private static boolean sentenceContainsOpinion(Sentence sentence)
-	{
+	private static boolean sentenceContainsOpinion(Sentence sentence) {
 		String name = "some_file.vector";
 		createSingleSentenceVectorFile(sentence, name);
 
@@ -980,8 +988,7 @@ public class Main {
 	// HELPER METHODS //
 	////////////////////
 	
-	private static void getSentiWordNet()
-	{
+	private static void getSentiWordNet() {
 		sentiWordNetDictionary = new SentiWordNetDictionary();
 
 		try

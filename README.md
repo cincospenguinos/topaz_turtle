@@ -12,6 +12,12 @@ My project for information extraction. This README will explain more about it. E
 - [ ] Add another classifier--perhaps a set of decision stumps?
 - [ ] Add a bunch of features
 
+### Things Andre needs to do
+
+- [ ] Change objectivity value representation for LibLinear
+- [ ] Polarity of sentence
+- [ ] Add a bunch of features
+
 ## Progress
 
 * I can detect with 53% accuracy whether or not a given sentence has an opinion simply by using "bag of words" features.
