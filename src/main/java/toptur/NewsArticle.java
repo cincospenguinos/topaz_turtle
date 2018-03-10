@@ -17,7 +17,7 @@ public class NewsArticle {
     private String documentName;
     private String fullText;
 
-    // Maps sentence to opinion object
+    // Maps opinion expression to opinion object
     private HashMap<String, Opinion> extractedOpinions;
     private HashMap<String, Opinion> goldStandardOpinions;
 
@@ -52,7 +52,7 @@ public class NewsArticle {
         goldStandardOpinions = new HashMap<String, Opinion>();
         
         for (Opinion o : goldStandards) {
-        		goldStandardOpinions.put(o.sentence, o);
+        		goldStandardOpinions.put(o.opinion, o);
         }
     }
 

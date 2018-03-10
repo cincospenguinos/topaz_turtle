@@ -612,57 +612,86 @@ public class Main {
 
 	    // Here we're going to do your standard BIO labeling to extract the opinion
 	    for (NewsArticle a : articles) {
-            HashMap<String, Opinion> goldStandard = a.getGoldStandardOpinions();
 
-            for (Map.Entry<String, Opinion> e : goldStandard.entrySet()) {
-                Sentence sentence = new Document(e.getKey()).sentences().get(0);
-                String[] opinionWords = e.getValue().opinion.split(" ");
+			// Get a mapping of sentences to all of their opinions
+			HashMap<String, HashSet<Opinion>> opinionatedSentences = new HashMap<String, HashSet<Opinion>>();
 
-                int previousLabel = -1;
-                for (int i = 0; i < sentence.words().size(); i++) {
-                    String word = sentence.word(i);
-                    String pos = sentence.posTag(i);
+			for (Opinion o : a.getGoldStandardOpinions().values()) {
+				if (opinionatedSentences.containsKey(o.sentence)) {
+					opinionatedSentences.get(o.sentence).add(o);
+				} else {
+					HashSet<Opinion> set = new HashSet<Opinion>();
+					set.add(o);
+					opinionatedSentences.put(o.sentence, set);
+				}
+			}
 
-                    // TODO: Are we sure this chunk works correctly?
-                    // O = 0, B = 1, I = 2
-                    int label = -1;
-                    for (int j = 0; j < opinionWords.length; j++) {
-                        if (word.equals(opinionWords[j]) && j == 0 && previousLabel == 0) {
-                            label = 1;
-                            break;
-                        } else if (word.equals(opinionWords[j]) && previousLabel == 1) {
-                            label = 2;
-                            break;
-                        }
-                    }
+			// Now let's figure out where the B and I labels go. Every other word will have an O label
+			for (Map.Entry<String, HashSet<Opinion>> e : opinionatedSentences.entrySet()) {
+				Sentence sentence = new Document(e.getKey()).sentence(0);
 
-                    if (label == -1) label = 0;
+				TreeSet<String> opinionExpressions = new TreeSet<String>();
+				for (Opinion o : e.getValue())
+					opinionExpressions.add(o.opinion);
 
-                    vectorFileBuilder.append(label);
-                    vectorFileBuilder.append(" ");
+				TreeMap<Integer, Integer> sentenceIndexToBIOLabel = new TreeMap<Integer, Integer>();
 
-                    previousLabel = label;
+				// Assign BIO labels
+				for (String opinionExpression : opinionExpressions) {
+					String[] expression = opinionExpression.split(" ");
+					String firstExpressionWord = expression[0];
 
-                    TreeMap<Integer, String> stupidMap = new TreeMap<Integer, String>();
-                    for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature.values()) {
-                        int id;
-                        switch(feature) {
-                            case PREVIOUS_UNIGRAM:
-                            	String previous;
+					for (int i = 0; i < sentence.words().size(); i++) {
+						String word = sentence.word(i);
 
-                                if (i > 0)
-                                	previous = sentence.word(i - 1);
-                                else
-                                	previous = PHI_WORD;
+						if (firstExpressionWord.equals(word)) {
+							boolean found = true;
 
-                                id = manager.getIdFor(feature, previous);
-                                stupidMap.put(id, id + ":1");
-                                break;
-                            case THIS_UNIGRAM:
-                                id = manager.getIdFor(feature, word);
-                                stupidMap.put(id, id + ":1");
-                                break;
-                            case NEXT_UNIGRAM:
+							int j = 1;
+							for (int k = i + j; k < sentence.words().size() && j < expression.length; k++) {
+								if (!expression[j].equals(sentence.word(k))) {
+									found = false;
+									break;
+								}
+
+								j += 1;
+							}
+
+							if (found) {
+								sentenceIndexToBIOLabel.put(i, 1);
+
+								for (j = 1; j < expression.length; j++)
+									sentenceIndexToBIOLabel.put(i + j, 2);
+							}
+						}
+					}
+				}
+
+				// And now, setup the vectors
+				for (int i = 0; i < sentence.words().size(); i++) {
+					String word = sentence.word(i);
+					String pos = sentence.posTag(i);
+
+					TreeMap<Integer, String> stupidMap = new TreeMap<Integer, String>();
+					for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature.values()) {
+						int id;
+						switch (feature) {
+							case PREVIOUS_UNIGRAM:
+								String previous;
+
+								if (i > 0)
+									previous = sentence.word(i - 1);
+								else
+									previous = PHI_WORD;
+
+								id = manager.getIdFor(feature, previous);
+								stupidMap.put(id, id + ":1");
+								break;
+							case THIS_UNIGRAM:
+								id = manager.getIdFor(feature, word);
+								stupidMap.put(id, id + ":1");
+								break;
+							case NEXT_UNIGRAM:
 								String next;
 
 								if (i < sentence.words().size() - 1)
@@ -672,7 +701,7 @@ public class Main {
 
 								id = manager.getIdFor(feature, next);
 								stupidMap.put(id, id + ":1");
-                                break;
+								break;
 							case PREVIOUS_PART_OF_SPEECH:
 								String previousPos;
 
@@ -684,10 +713,10 @@ public class Main {
 								id = manager.getIdFor(feature, previousPos);
 								stupidMap.put(id, id + ":1");
 								break;
-                            case THIS_PART_OF_SPEECH:
-                                id = manager.getIdFor(feature, pos);
-                                stupidMap.put(id, id + ":1");
-                                break;
+							case THIS_PART_OF_SPEECH:
+								id = manager.getIdFor(feature, pos);
+								stupidMap.put(id, id + ":1");
+								break;
 							case NEXT_PART_OF_SPEECH:
 								String nextPos;
 
@@ -699,24 +728,33 @@ public class Main {
 								id = manager.getIdFor(feature, nextPos);
 								stupidMap.put(id, id + ":1");
 								break;
-                            case OBJECTIVITY_OF_WORD:
-                                id = manager.getIdFor(feature, "");
-                                double objectivity = sentiWordNetDictionary.getObjectivityOf(word);
-                                stupidMap.put(id, id + ":" + objectivity);
-                                break;
-                        }
-                    }
+							case OBJECTIVITY_OF_WORD:
+								id = manager.getIdFor(feature, "");
+								double objectivity = sentiWordNetDictionary.getObjectivityOf(word);
+								stupidMap.put(id, id + ":" + objectivity);
+								break;
+						}
+					}
 
-                    for (String s : stupidMap.values()) {
-                        vectorFileBuilder.append(s);
-                        vectorFileBuilder.append(' ');
-                    }
+					if (sentenceIndexToBIOLabel.containsKey(i)) {
+						vectorFileBuilder.append(sentenceIndexToBIOLabel.get(i));
+					} else {
+						vectorFileBuilder.append(0);
+					}
 
-                    vectorFileBuilder.append('\n');
-                }
-            }
-        }
+					vectorFileBuilder.append(' ');
 
+					for (String s : stupidMap.values()) {
+						vectorFileBuilder.append(s);
+						vectorFileBuilder.append(' ');
+					}
+
+					vectorFileBuilder.append('\n');
+				}
+			}
+		}
+
+		// TODO: Should we do this with non-opinionated sentences as well?
 
         try {
             PrintWriter vectorFile = new PrintWriter(opinionTrainingFile);
@@ -858,7 +896,7 @@ public class Main {
 
             try {
                 Runtime.getRuntime().exec("./liblinear_predict " + name + " " + SENTENCES_MODEL_FILE + " output.txt");
-                Thread.sleep(25); // To give LibLinear enough time to output to file
+                Thread.sleep(50); // To give LibLinear enough time to output to file
                 Scanner derp = new Scanner(Runtime.getRuntime().exec("cat output.txt").getInputStream());
                 int j = derp.nextInt();
                 derp.close();
