@@ -40,6 +40,7 @@ We should modify the sentence gatherer accordingly.
 its own frame when placed in a JSON file, meaning a single sentence that has six opinions in it will have six different
 frames to represent it. The opinion extractor will take a single sentence and return a collection of opinion expressions
 it found inside.
+* So I'm getting 46% accuracy on the sentiment step, both on CADE and on my local machine. So that needs to be patched up.
 
 ## Resources
 
