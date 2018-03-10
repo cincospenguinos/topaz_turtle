@@ -14,9 +14,10 @@ My project for information extraction. This README will explain more about it. E
 
 ### Things Andre needs to do
 
-- [ ] Change objectivity value representation for LibLinear
-- [ ] Polarity of sentence
+- [x] Change objectivity value representation for LibLinear
+- [x] Polarity of sentence
 - [ ] Add a bunch of features
+- [x] Debug it on the CADE machines
 
 ## Progress
 

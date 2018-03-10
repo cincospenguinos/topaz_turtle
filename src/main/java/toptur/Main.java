@@ -38,12 +38,16 @@ public class Main {
 	public static final String AGENT_TEST_FILE = TOPTUR_DATA_FOLDER + "agent_test.vector";
 
 	public static final String TARGET_TRAINING_FILE = TOPTUR_DATA_FOLDER + "target_train.vector";
-	public static final String TARGET_MODEL_FILE = TOPTUR_DATA_FOLDER + ".liblinear_models/target.model";
+	public static final String TARGET_MODEL_FILE = TOPTUR_DATA_FOLDER + "liblinear_models/target.model";
 	public static final String TARGET_TEST_FILE = TOPTUR_DATA_FOLDER + "target_test.vector";
 
 	public static final String OPINION_TRAINING_FILE = TOPTUR_DATA_FOLDER + "opinion_train.vector";
 	public static final String OPINION_TEST_FILE = TOPTUR_DATA_FOLDER + "opinion_test.vector";
 	public static final String OPINION_MODEL_FILE = TOPTUR_DATA_FOLDER + "liblinear_models/opinion.model";
+
+	public static final String SENTIMENT_TRAINING_FILE = TOPTUR_DATA_FOLDER + "sentiment_train.vector";
+	public static final String SENTIMENT_TEST_FILE = TOPTUR_DATA_FOLDER + "sentiment_test.vector";
+	public static final String SENTIMENT_MODEL_FILE = TOPTUR_DATA_FOLDER + "liblinear_models/sentiment.model";
 
 	public static final String LIB_LINEAR_FEATURE_MANAGER_FILE = TOPTUR_DATA_FOLDER + "/lib_linear_feature_manager.json";
 
@@ -93,6 +97,11 @@ public class Main {
             trainLibLinear(OPINION_TRAINING_FILE, OPINION_MODEL_FILE);
             testLibLinear(OPINION_TRAINING_FILE, OPINION_MODEL_FILE, "/dev/null");
 
+            // Train to determine polarity of a given sentence
+			createPolarityVectorFile(devArticles, SENTIMENT_TRAINING_FILE);
+			trainLibLinear(SENTIMENT_TRAINING_FILE, SENTIMENT_MODEL_FILE);
+			testLibLinear(SENTIMENT_TRAINING_FILE, SENTIMENT_MODEL_FILE, "/dev/null");
+
             LibLinearFeatureManager.saveInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
         } else if (task.equals("test")) {
@@ -114,11 +123,13 @@ public class Main {
             createVectorFileAgent(testArticles, AGENT_TEST_FILE);
             createVectorFileTarget(testArticles, TARGET_TEST_FILE);
             createOpinionVectorFile(testArticles, OPINION_TEST_FILE);
+            createPolarityVectorFile(testArticles, SENTIMENT_TEST_FILE);
 
             testLibLinear(SENTENCES_TEST_FILE, SENTENCES_MODEL_FILE, "/dev/null");
             testLibLinear(AGENT_TEST_FILE, AGENT_MODEL_FILE, "/dev/null");
             testLibLinear(TARGET_TEST_FILE, TARGET_MODEL_FILE, "/dev/null");
             testLibLinear(OPINION_TEST_FILE, OPINION_MODEL_FILE, "/dev/null");
+            testLibLinear(SENTIMENT_TEST_FILE, SENTIMENT_MODEL_FILE, "/dev/null");
 
             // Extract the opinions
             // Let's time how long it takes
@@ -150,6 +161,85 @@ public class Main {
             System.exit(1);
         }
     }
+
+	/**
+	 * Creates a vector file for the polarity of a given sentence.
+	 *
+	 * @param articles - articles to create file from
+	 * @param vectorFileName - name of the file
+	 */
+	private static void createPolarityVectorFile(List<NewsArticle> articles, String vectorFileName) {
+		LibLinearFeatureManager manager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
+		StringBuilder vectorFileBuilder = new StringBuilder();
+
+		for (NewsArticle a : articles) {
+			for (Opinion o : a.getGoldStandardOpinions().values()) {
+				vectorFileBuilder.append(o.sentimentId());
+				vectorFileBuilder.append(' ');
+
+				Sentence sentence = new Sentence(o.sentence);
+				TreeMap<Integer, String> stupidMap = new TreeMap<Integer, String>();
+				for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature.values()) {
+					int id;
+
+					switch(feature) {
+						case CONTAINS_UNIGRAM:
+							for (String w : sentence.words()) {
+								id = manager.getIdFor(feature, w);
+								stupidMap.put(id, id + ":1");
+							}
+							break;
+						case CONTAINS_BIGRAM:
+							for (int i = 0; i <= sentence.words().size(); i++) {
+								String bigram;
+
+								if (i == 0) {
+									bigram = PHI_WORD + " " + sentence.word(i);
+								} else if (i == sentence.words().size()) {
+									bigram = sentence.word(i - 1) + " " + OMEGA_WORD;
+								} else {
+									bigram = sentence.word(i - 1) + " " + sentence.word(i);
+								}
+
+								id = manager.getIdFor(feature, bigram);
+								stupidMap.put(id, id + ":1");
+							}
+							break;
+						case OBJECTIVITY_OF_SENTENCE:
+							int objectivity = 0;
+
+							for (String w : sentence.words())
+								objectivity += sentiWordNetDictionary.getObjectivityOf(w);
+
+							objectivity /= sentence.words().size();
+
+							id = manager.getIdFor(feature, "");
+							stupidMap.put(id, id + ":" + objectivity);
+
+							break;
+					}
+				}
+
+				for (String s : stupidMap.values()) {
+					vectorFileBuilder.append(s);
+					vectorFileBuilder.append(' ');
+				}
+
+				vectorFileBuilder.append('\n');
+			}
+		}
+
+		try
+		{
+			PrintWriter vectorFile = new PrintWriter(vectorFileName);
+			vectorFile.print(vectorFileBuilder.toString());
+			vectorFile.flush();
+			vectorFile.close();
+		} catch (FileNotFoundException e)
+		{
+			e.printStackTrace();
+		}
+	}
 
 	/////////////////////
 	// DATA PROCESSING //
