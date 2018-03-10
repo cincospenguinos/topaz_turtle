@@ -29,24 +29,23 @@ public class Main {
     public static final String TEST_DOCS = "dataset/test";
     public static final String ORIGINAL_DOCS = "dataset/original_dataset/docs";
 
-    public static final String SENTENCES_TRAINING_FILE = "sentences_train.vector";
-    public static final String SENTENCES_MODEL_FILE = ".liblinear_models/sentences.model";
-    public static final String SENTENCES_TEST_FILE = "sentences_test.vector";
+    public static final String SENTENCES_TRAINING_FILE = TOPTUR_DATA_FOLDER + "sentences_train.vector";
+    public static final String SENTENCES_MODEL_FILE = TOPTUR_DATA_FOLDER + "liblinear_models/sentences.model";
+    public static final String SENTENCES_TEST_FILE = TOPTUR_DATA_FOLDER + "sentences_test.vector";
 
-	public static final String AGENT_TRAINING_FILE = "agent_train.vector";
-	public static final String AGENT_MODEL_FILE = ".liblinear_models/agent.model";
-	public static final String AGENT_TEST_FILE = "agent_test.vector";
+	public static final String AGENT_TRAINING_FILE = TOPTUR_DATA_FOLDER + "agent_train.vector";
+	public static final String AGENT_MODEL_FILE = TOPTUR_DATA_FOLDER + "liblinear_models/agent.model";
+	public static final String AGENT_TEST_FILE = TOPTUR_DATA_FOLDER + "agent_test.vector";
 
-	public static final String TARGET_TRAINING_FILE = "target_train.vector";
-	public static final String TARGET_MODEL_FILE = ".liblinear_models/target.model";
-	public static final String TARGET_TEST_FILE = "target_test.vector";
+	public static final String TARGET_TRAINING_FILE = TOPTUR_DATA_FOLDER + "target_train.vector";
+	public static final String TARGET_MODEL_FILE = TOPTUR_DATA_FOLDER + ".liblinear_models/target.model";
+	public static final String TARGET_TEST_FILE = TOPTUR_DATA_FOLDER + "target_test.vector";
 
-	public static final String OPINION_TRAINING_FILE = "opinion_train.vector";
-	public static final String OPINION_TEST_FILE = "opinion_test.vector";
-	public static final String OPINION_MODEL_FILE = ".liblinear_models/opinion.model";
+	public static final String OPINION_TRAINING_FILE = TOPTUR_DATA_FOLDER + "opinion_train.vector";
+	public static final String OPINION_TEST_FILE = TOPTUR_DATA_FOLDER + "opinion_test.vector";
+	public static final String OPINION_MODEL_FILE = TOPTUR_DATA_FOLDER + "liblinear_models/opinion.model";
 
-	public static final String TOPTUR_DATA = ".toptur_data";
-	public static final String LIB_LINEAR_FEATURE_MANAGER_FILE = TOPTUR_DATA + "/lib_linear_feature_manager.json";
+	public static final String LIB_LINEAR_FEATURE_MANAGER_FILE = TOPTUR_DATA_FOLDER + "/lib_linear_feature_manager.json";
 
     public static final String SENTI_WORD_NET_FILE = "sentiwordnet.txt";
 
