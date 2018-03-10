@@ -147,7 +147,12 @@ class TopTur < Thor
 		exec("java -jar #{JAR_NAME} train")
 	end
 
-	desc 'test', 'Test the system using the current test set'
+	desc 'test [--evaluation_type]...', 'Evaluate the system on the test set using --evaluation_type(s). Defaults to all if none are provided.'
+	option :sentence, :type => :boolean, :aliases => :s
+	option :opinion, :type => :boolean, :aliases => :o
+	option :agent, :type => :boolean, :aliases => :a
+	option :target, :type => :boolean, :aliases => :t
+	option :polarity, :type => :boolean, :aliases => :p
 	def test
 		setup
 
@@ -161,7 +166,9 @@ class TopTur < Thor
 			exit(1)
 		end
 
-		exec("java -jar #{JAR_NAME} test")
+		opts = ''
+		options.each { |o, val| opts = "#{opts} --#{o} "}
+		exec("java -jar #{JAR_NAME} test #{opts}")
 	end
 
 	desc 'extract [FILE1] ...', 'Extract opinions from the individual file or files and print them in a readable format'
@@ -189,8 +196,8 @@ class TopTur < Thor
 	private
 
 	SETTINGS_FILE_NAME = '.toptur_settings.json'
-	MODELS_DIRECTORY = '.liblinear_models'
 	DATA_DIRECTORY = '.toptur_data'
+	MODELS_DIRECTORY = DATA_DIRECTORY + '/liblinear_models'
 
 	## Sets up local data files and things to help out
 	def setup
@@ -207,9 +214,11 @@ class TopTur < Thor
 			save_settings
 		end
 
-		# Setup liblinear
+		# Setup local data file
+		Dir.mkdir(DATA_DIRECTORY) unless Dir.exist?(DATA_DIRECTORY)
 		Dir.mkdir(MODELS_DIRECTORY) unless Dir.exist?(MODELS_DIRECTORY)
 
+		# Setup liblinear
 		unless File.exist?('liblinear_train') && File.exist?('liblinear_predict')
 			Dir.chdir('liblinear') do
 				if `make clean &> /dev/null && make &> /dev/null`
@@ -222,9 +231,6 @@ class TopTur < Thor
 				end
 			end
 		end
-
-		# Setup local data file
-		Dir.mkdir(DATA_DIRECTORY) unless Dir.exist?(DATA_DIRECTORY)
 
 		# Package the jar using Maven
 		unless `mvn package`

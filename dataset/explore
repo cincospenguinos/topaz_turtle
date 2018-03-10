@@ -108,5 +108,9 @@ annotations.each do |annotation|
 
 		frames_for_document << frame
 	end
+
+	dups = {}
+	frames_for_document.each { |f| dups[f[:sentence]].nil? ? dups[f[:sentence]] = 1 : dups[f[:sentence]] += 1 }
+	dups.each { |s, val| puts val }
 end
 
