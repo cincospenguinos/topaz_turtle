@@ -204,81 +204,6 @@ public class Main {
     ////////////////////////
     // FEATURE PROCESSING //
     ////////////////////////
-    
-    /**
-     * Generates a vector file in LibLinear format for whatever articles are provided.
-     * 
-     * This vector file contains features for ... of an opinion. 
-     * 
-     * @param articles
-     * @param nameOfVectorFile
-     */
-	private static void createSingleSentenceVectorFile(Sentence sentence, String nameOfVectorFile)
-	{
-		StringBuilder vectorFileBuilder = new StringBuilder();
-		LibLinearFeatureManager libLinearFeatureManager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
-
-		StringBuilder vectorLineBuilder = new StringBuilder();
-		TreeMap<Integer, Object> libLinearFeatureVector = new TreeMap<Integer, Object>();
-
-		vectorFileBuilder.append("0"); // Assume objective
-
-		List<String> words = sentence.words();
-
-		// Creating the feature vectors
-		for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature.values())
-		{
-			switch (feature)
-			{
-			case CONTAINS_UNIGRAM:
-				for (String w : words)
-				{
-					int id = libLinearFeatureManager.getIdFor(feature, w);
-					libLinearFeatureVector.put(id, true);
-				}
-				break;
-			case OBJECTIVITY_OF_SENTENCE:
-				int id = libLinearFeatureManager.getIdFor(feature, "");
-				double objectivity = 0.0;
-
-				for (String w : words)
-				{
-					objectivity += sentiWordNetDictionary.getObjectivityOf(w);
-				}
-
-				objectivity /= words.size();
-				libLinearFeatureVector.put(id, objectivity);
-
-				break;
-			}
-		}
-
-		for (Map.Entry<Integer, Object> e : libLinearFeatureVector.entrySet())
-		{
-			vectorLineBuilder.append(" ");
-			vectorLineBuilder.append(e.getKey());
-			vectorLineBuilder.append(":");
-
-			if (e.getValue() instanceof Boolean)
-				vectorLineBuilder.append(1);
-			else
-				vectorLineBuilder.append(e.getValue());
-		}
-
-		vectorFileBuilder.append(vectorLineBuilder.toString());
-		vectorFileBuilder.append("\n");
-
-		try
-		{
-			PrintWriter vectorFile = new PrintWriter(nameOfVectorFile);
-			vectorFile.print(vectorFileBuilder.toString());
-			vectorFile.flush();
-			vectorFile.close();
-		} catch (FileNotFoundException e)
-		{
-			e.printStackTrace();
-		}
-	}
 	
 	/**
 	 * Generates a vector file in LibLinear format for whatever articles are
@@ -918,28 +843,6 @@ public class Main {
 	//////////////////////////////////////
 	// EXTRACT/EVALUATE WITH CLASSIFIER //
 	//////////////////////////////////////
-	
-	// This is for evaluating 
-    private static void extractAllOpinionsFor(NewsArticle article) {
-        Document doc = new Document(article.getFullText());
-
-        for (Sentence s : doc.sentences()) {
-            if (sentenceContainsOpinion(s)) {
-                Opinion o = new Opinion();
-                o.sentence = s.toString();
-                o.opinion = extractOpinionFrom(s);
-
-                if (o.opinion == null)
-                    continue;
-
-//						System.out.println(o.opinion + "\t" + s.posTag(s.words().indexOf(o.opinion)));
-
-                // TODO: Grab the target/agent/etc. from the sentence
-                article.addExtractedOpinion(o);
-            }
-        }
-    }
-
 	
 	// Evaluate
 	private static boolean sentenceContainsOpinion(Sentence sentence)
