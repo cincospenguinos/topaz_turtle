@@ -147,7 +147,12 @@ class TopTur < Thor
 		exec("java -jar #{JAR_NAME} train")
 	end
 
-	desc 'test', 'Test the system using the current test set'
+	desc 'test [--evaluation_type]...', 'Evaluate the system on the test set using --evaluation_type(s). Defaults to all if none are provided.'
+	option :sentence, :type => :boolean, :aliases => :s
+	option :opinion, :type => :boolean, :aliases => :o
+	option :agent, :type => :boolean, :aliases => :a
+	option :target, :type => :boolean, :aliases => :t
+	option :polarity, :type => :boolean, :aliases => :p
 	def test
 		setup
 
@@ -161,7 +166,9 @@ class TopTur < Thor
 			exit(1)
 		end
 
-		exec("java -jar #{JAR_NAME} test")
+		opts = ''
+		options.each { |o, val| opts = "#{opts} --#{o} "}
+		exec("java -jar #{JAR_NAME} test #{opts}")
 	end
 
 	desc 'extract [FILE1] ...', 'Extract opinions from the individual file or files and print them in a readable format'

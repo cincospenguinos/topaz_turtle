@@ -96,7 +96,18 @@ public class Main {
             LibLinearFeatureManager.saveInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
         } else if (task.equals("test")) {
-			ArrayList<NewsArticle> devArticles = getAllDocsFrom(DEV_DOCS);
+        	TreeSet<EvaluationOption> evalOptions = new TreeSet<EvaluationOption>();
+
+        	if (args.length == 1) {
+        		for (EvaluationOption e : EvaluationOption.values())
+        			evalOptions.add(e);
+			} else {
+				for (int i = 1; i < args.length; i++) {
+					EvaluationOption e = EvaluationOption.valueOf(args[i].replaceAll("-", "").toUpperCase());
+					evalOptions.add(e);
+				}
+			}
+
             ArrayList<NewsArticle> testArticles = getAllDocsFrom(TEST_DOCS);
 
             createSentencesVectorFile(testArticles, SENTENCES_TEST_FILE);
@@ -119,12 +130,7 @@ public class Main {
 
             System.out.println(((double) endTime - startTime) / 1000.0  + " seconds");
 
-            evaluateExtractedOpinions(testArticles);
-
-//			for (NewsArticle a : devArticles)
-//				extractAllOpinionsFor(a);
-//
-//			evaluateExtractedOpinions(devArticles);
+            evaluateExtractedOpinions(testArticles, evalOptions);
 
         } else if (task.equals("extract")) {
             for (int i = 1; i < args.length; i++) {
@@ -923,12 +929,7 @@ public class Main {
 	}
 	
 	// Evaluate
-	private static void evaluateExtractedOpinions(ArrayList<NewsArticle> articles)
-	{
-		// So we're using F Score. That means we care about two things:
-		// Precision: How many did I extract were correct?
-		// Recall: How many correct ones were successfully extracted?
-
+	private static void evaluateExtractedOpinions(ArrayList<NewsArticle> articles, Set<EvaluationOption> evaluationOptions) {
 		double totalFScore = 0.0;
 
 		System.out.println("Name\tPrecision\tRecall\tFScore");
@@ -942,15 +943,26 @@ public class Main {
 			TreeSet<String> correct = new TreeSet<String>();
 
 			for (Opinion extracted : extractedOpinions.values()) {
-			    if (goldStandardOpinions.containsValue(extracted)) {
-			        correct.add(extracted.sentence);
-			        truePositives += 1.0;
-                }
+				for (Opinion goldStandard : goldStandardOpinions.values()) {
+					boolean matches = true;
+
+					for (EvaluationOption option : evaluationOptions) {
+						if (!Opinion.opinionsMatchGivenOption(extracted, goldStandard, option)) {
+							matches = false;
+							break;
+						}
+					}
+
+					if (matches && !correct.contains(extracted.opinion)) {
+						correct.add(extracted.opinion);
+						truePositives += 1.0;
+					}
+				}
             }
 
             for (String s : correct) {
-			    extractedOpinions.remove(s);
-			    goldStandardOpinions.remove(s);
+				extractedOpinions.remove(s);
+				goldStandardOpinions.remove(s);
             }
 
 			double precision = truePositives / (extractedOpinions.size() + correct.size());
