@@ -123,11 +123,9 @@ public class NewsArticle {
      * @return
      */
     public boolean sentenceHasOpinion(String sentence) {
-//        for (Opinion o : goldStandardOpinions)
-//            if (o.sentence.equalsIgnoreCase(sentence))
-//                return true;
-    		if(goldStandardOpinions.containsKey(sentence))
-    			return true;
+        for (Opinion o : goldStandardOpinions.values())
+            if (o.sentence.equals(sentence))
+                return true;
         return false;
     }
     
@@ -135,8 +133,12 @@ public class NewsArticle {
 //    		for (Opinion o: goldStandardOpinions)
 //    			if (o.sentence.equalsIgnoreCase(sentence))
 //    				return o.agent;
-	    	if(goldStandardOpinions.containsKey(sentence))
-				return goldStandardOpinions.get(sentence).agent;
+//	    	if(goldStandardOpinions.containsKey(sentence))
+//				return goldStandardOpinions.get(sentence).agent;
+        for (Opinion o : goldStandardOpinions.values())
+            if (o.sentence.equals(sentence))
+                return o.agent;
+
     		return "Null";
     }
 
@@ -149,7 +151,7 @@ public class NewsArticle {
     }
 
     public void addExtractedOpinion(Opinion o) {
-        extractedOpinions.put(o.sentence, o);
+        extractedOpinions.put(o.opinion, o);
     }
 
     public HashMap<String, Opinion> getExtractedOpinions() {

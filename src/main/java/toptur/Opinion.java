@@ -16,11 +16,11 @@ public class Opinion {
         if (o instanceof Opinion) {
             Opinion other = (Opinion) o;
 
-            return other.sentence.equals(sentence)
-//                    && other.opinion.equals(opinion)
-//                    && other.agent.equals(agent)
-//                    && other.target.equals(target)
-//                    && other.sentiment.equals(sentiment)
+            return other.sentence.equals(this.sentence)
+                    && opinionsMatch(other.opinion, this.opinion)
+//                    && other.agent.equals(this.agent)
+//                    && other.target.equals(this.target)
+//                    && other.sentiment.equals(this.sentiment)
                     ;
 
         }
@@ -28,7 +28,7 @@ public class Opinion {
         return false;
     }
 
-    public void extractOpinion() {
-
+    private boolean opinionsMatch(String o1, String o2) {
+        return o1.contains(o2) || o2.contains(o1);
     }
 }

@@ -4,7 +4,8 @@ My project for information extraction. This README will explain more about it. E
 
 ## What do we have to do next?
 
-- [ ] Extract the opinion in the sentence
+- [x] Extract the opinion in the sentence
+- [ ] Allow evaluation of a specific metric for test command
 - [ ] Extract the agent in the sentence
 - [ ] Extract the target in the sentence
 - [ ] Figure out the polarity of the opinion
@@ -28,14 +29,10 @@ are the counts:
     5. 4
     6. 3
 We should modify the sentence gatherer accordingly.
-
-### Features that do not help detect opinions:
-
-* Contains bigram
-* Contains organization
-* Contains person
-* Contains ANY named entity (Drops to 50%)
-* Starts with trigram
+* With the recent modifications I've done on my branch, all of this should be mitigated. Each opinion expression has
+its own frame when placed in a JSON file, meaning a single sentence that has six opinions in it will have six different
+frames to represent it. The opinion extractor will take a single sentence and return a collection of opinion expressions
+it found inside.
 
 ## Resources
 

@@ -23,6 +23,8 @@ public class Main {
 	// MEMBER VARIABLES //
 	//////////////////////
 
+	public static final String TOPTUR_DATA_FOLDER = ".toptur_data/";
+
     public static final String DEV_DOCS = "dataset/dev";
     public static final String TEST_DOCS = "dataset/test";
     public static final String ORIGINAL_DOCS = "dataset/original_dataset/docs";
@@ -928,7 +930,7 @@ public class Main {
 		// Precision: How many did I extract were correct?
 		// Recall: How many correct ones were successfully extracted?
 
-		double totalFScore = 0.0; // TODO: This needs to be fixed!
+		double totalFScore = 0.0;
 
 		System.out.println("Name\tPrecision\tRecall\tFScore");
 
