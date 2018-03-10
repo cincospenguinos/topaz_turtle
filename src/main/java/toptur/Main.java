@@ -244,10 +244,11 @@ public class Main {
 							id = libLinearFeatureManager.getIdFor(feature, bigram);
 							libLinearFeatureVector.put(id, true);
 						}
+
 						break;
 					case OBJECTIVITY_OF_SENTENCE:
 						id = libLinearFeatureManager.getIdFor(feature, "");
-						double objectivity = 0.0;
+						int objectivity = 0;
 
 						for (String w : words)
 						{
@@ -505,10 +506,9 @@ public class Main {
 				break;
 			case OBJECTIVITY_OF_SENTENCE:
 				int id = libLinearFeatureManager.getIdFor(feature, "");
-				double objectivity = 0.0;
+				int objectivity = 0;
 
-				for (String w : words)
-				{
+				for (String w : words) {
 					objectivity += sentiWordNetDictionary.getObjectivityOf(w);
 				}
 
