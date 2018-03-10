@@ -4,12 +4,13 @@ My project for information extraction. This README will explain more about it. E
 
 ## What do we have to do next?
 
-- [x] Create classifier to detect opinions in sentences
-- [x] Get the sentence classifier to be at least 50% accurate
-- [ ] Extract the opinion in the sentence
+- [x] Extract the opinion in the sentence
+- [ ] Allow evaluation of a specific metric for test command
 - [ ] Extract the agent in the sentence
 - [ ] Extract the target in the sentence
 - [ ] Figure out the polarity of the opinion
+- [ ] Add another classifier--perhaps a set of decision stumps?
+- [ ] Add a bunch of features
 
 ## Progress
 
@@ -19,14 +20,19 @@ I'd really like to see better accuracy than that.
 * So depending on what seed you use, you get a variety of accuracies. A seed of 2 provides much higher accuracy than 1992
 * I wrote the evaluation method, which was super simple. I'm getting an FScore on sentences of 0.37855, which really isn't
 bad--I was expecting a whole lot worse. On different seeds I do get a whole lot worse though.
-
-### Features that do not help detect opinions:
-
-* Contains bigram
-* Contains organization
-* Contains person
-* Contains ANY named entity (Drops to 50%)
-* Starts with trigram
+* Turns out each sentence can easily have more than 1 opinion--at times, there are as many as 6. That's problematic. Here
+are the counts:
+    1. 124 sentences
+    2. 97
+    3. 42
+    4. 14
+    5. 4
+    6. 3
+We should modify the sentence gatherer accordingly.
+* With the recent modifications I've done on my branch, all of this should be mitigated. Each opinion expression has
+its own frame when placed in a JSON file, meaning a single sentence that has six opinions in it will have six different
+frames to represent it. The opinion extractor will take a single sentence and return a collection of opinion expressions
+it found inside.
 
 ## Resources
 

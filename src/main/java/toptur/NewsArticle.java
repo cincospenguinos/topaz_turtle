@@ -16,8 +16,8 @@ public class NewsArticle {
 
     private String documentName;
     private String fullText;
-    //private ArrayList<Opinion> extractedOpinions; // opinions found in the document
-    //private ArrayList<Opinion> goldStandardOpinions; // hand annotated opinions
+
+    // Maps opinion expression to opinion object
     private HashMap<String, Opinion> extractedOpinions;
     private HashMap<String, Opinion> goldStandardOpinions;
 
@@ -41,8 +41,6 @@ public class NewsArticle {
             System.exit(1);
         }
 
-        //extractedOpinions = new ArrayList<Opinion>();
-        //goldStandardOpinions = new ArrayList<Opinion>();
         extractedOpinions = new HashMap<String, Opinion>();
         goldStandardOpinions = new HashMap<String, Opinion>();
     }
@@ -53,11 +51,8 @@ public class NewsArticle {
         extractedOpinions = new HashMap<String, Opinion>();
         goldStandardOpinions = new HashMap<String, Opinion>();
         
-        //goldStandardOpinions = new ArrayList<Opinion>();
-        //goldStandardOpinions.addAll(Arrays.asList(goldStandards));
-        
         for (Opinion o : goldStandards) {
-        		goldStandardOpinions.put(o.sentence, o);
+        		goldStandardOpinions.put(o.opinion, o);
         }
     }
 
@@ -128,11 +123,9 @@ public class NewsArticle {
      * @return
      */
     public boolean sentenceHasOpinion(String sentence) {
-//        for (Opinion o : goldStandardOpinions)
-//            if (o.sentence.equalsIgnoreCase(sentence))
-//                return true;
-    		if(goldStandardOpinions.containsKey(sentence))
-    			return true;
+        for (Opinion o : goldStandardOpinions.values())
+            if (o.sentence.equals(sentence))
+                return true;
         return false;
     }
     
@@ -140,8 +133,12 @@ public class NewsArticle {
 //    		for (Opinion o: goldStandardOpinions)
 //    			if (o.sentence.equalsIgnoreCase(sentence))
 //    				return o.agent;
-	    	if(goldStandardOpinions.containsKey(sentence))
-				return goldStandardOpinions.get(sentence).agent;
+//	    	if(goldStandardOpinions.containsKey(sentence))
+//				return goldStandardOpinions.get(sentence).agent;
+        for (Opinion o : goldStandardOpinions.values())
+            if (o.sentence.equals(sentence))
+                return o.agent;
+
     		return "Null";
     }
 
@@ -154,7 +151,7 @@ public class NewsArticle {
     }
 
     public void addExtractedOpinion(Opinion o) {
-        extractedOpinions.put(o.sentence, o);
+        extractedOpinions.put(o.opinion, o);
     }
 
     public HashMap<String, Opinion> getExtractedOpinions() {
