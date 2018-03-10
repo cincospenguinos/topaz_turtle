@@ -457,8 +457,7 @@ public class Main {
      * @param sentence, nameOfVectorFile
      * @param nameOfVectorFile
      */
-	private static void createSingleSentenceVectorFile(Sentence sentence, String nameOfVectorFile)
-	{
+	private static void createSingleSentenceVectorFile(Sentence sentence, String nameOfVectorFile) {
 		StringBuilder vectorFileBuilder = new StringBuilder();
 		LibLinearFeatureManager libLinearFeatureManager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
@@ -843,32 +842,33 @@ public class Main {
         Document doc = new Document(article.getFullText());
 
         for (Sentence s : doc.sentences()) {
+
             if (sentenceContainsOpinion(s)) {
-                Opinion o = new Opinion();
-                o.sentence = s.toString();
-                o.opinion = extractOpinionFrom(s);
+            	for (String opinionExpression : extractAllOpinionsFrom(s)) {
+            		Opinion o = new Opinion();
+            		o.opinion = opinionExpression;
+            		o.sentence = s.toString();
 
-                if (o.opinion == null)
-                    continue;
+            		// TODO: Add agent/target/polarity
 
-                // TODO: Grab the target/agent/etc. from the sentence
-                article.addExtractedOpinion(o);
+					article.addExtractedOpinion(o);
+				}
             }
         }
     }
 
     /**
-     * Extracts the opinion from the sentence provided.
+     * Extracts all opinions from the sentence provided.
      *
-     * @param s -
-     * @return String or null
+     * @param s - Sentence to get opinions from
+     * @return Set of type String
      */
-	private static String extractOpinionFrom(Sentence s) {
+	private static Set<String> extractAllOpinionsFrom(Sentence s) {
         String name = "some_file.vector";
 
         int previousTag = 0;
 
-        TreeSet<String> potentialOpinions = new TreeSet<String>();
+        TreeSet<String> allOpinions = new TreeSet<String>();
 
         StringBuilder opinionBuilder = new StringBuilder();
         for (int i = 0; i < s.words().size(); i++) {
@@ -896,20 +896,21 @@ public class Main {
 
             try {
                 Runtime.getRuntime().exec("./liblinear_predict " + name + " " + SENTENCES_MODEL_FILE + " output.txt");
-                Thread.sleep(50); // To give LibLinear enough time to output to file
-                Scanner derp = new Scanner(Runtime.getRuntime().exec("cat output.txt").getInputStream());
-                int j = derp.nextInt();
-                derp.close();
+                Thread.sleep(100); // To give LibLinear enough time to output to file
 
-                if (j == 0 && previousTag != 0) {
-                	potentialOpinions.add(opinionBuilder.toString().trim());
-                    opinionBuilder = new StringBuilder();
-                } else {
-                    opinionBuilder.append(word);
-                    opinionBuilder.append(" ");
-                }
+				Scanner scanner = new Scanner(new File("output.txt"));
 
-                previousTag = j;
+				while(scanner.hasNextLine()) {
+					int label = Integer.parseInt(scanner.nextLine());
+
+					if (label != 0) {
+						opinionBuilder.append(word);
+						opinionBuilder.append(" ");
+					} else if (opinionBuilder.length() > 0) {
+						allOpinions.add(opinionBuilder.toString());
+						opinionBuilder = new StringBuilder();
+					}
+				}
             } catch (IOException e) {
                 e.printStackTrace();
             } catch (InterruptedException e) {
@@ -917,27 +918,7 @@ public class Main {
             }
         }
 
-        // TODO: Explore other methods of doing this
-        // Now we just need to select out of the best potential opinions that we have
-		double bestObjectiveness = Double.MAX_VALUE;
-        String bestOpinion = "";
-		for (String ops : potentialOpinions) {
-			double objectivity = 0.0;
-        	String[] words = ops.split(" ");
-
-        	for (String w : words)
-        		objectivity += sentiWordNetDictionary.getObjectivityOf(w);
-
-        	objectivity /= words.length;
-        	if (objectivity < bestObjectiveness) {
-        		bestObjectiveness = objectivity;
-        		bestOpinion = ops;
-			}
-		}
-
-//		System.out.println(bestOpinion);
-
-        return bestOpinion;
+        return allOpinions;
 	}
 	
 	// Evaluate
