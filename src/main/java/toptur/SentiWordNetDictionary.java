@@ -24,14 +24,12 @@ public class SentiWordNetDictionary {
         }
     }
 
-    public boolean hasWord(String word) {
-        return dictionary.containsKey(word);
-    }
+    public int getObjectivityOf(String word) {
+        if (dictionary.containsKey(word)) {
+            double o = dictionary.get(word).getObjectivity();
+            return (int)(o * 100);
+        }
 
-    public double getObjectivityOf(String word) {
-        if (dictionary.containsKey(word))
-            return dictionary.get(word).getObjectivity();
-
-        return 1.0; // Assume full objectivity
+        return 100; // Assume full objectivity
     }
 }

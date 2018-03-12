@@ -12,6 +12,13 @@ My project for information extraction. This README will explain more about it. E
 - [ ] Add another classifier--perhaps a set of decision stumps?
 - [ ] Add a bunch of features
 
+### Things Andre needs to do
+
+- [x] Change objectivity value representation for LibLinear
+- [x] Polarity of sentence
+- [ ] Add a bunch of features
+- [x] Debug it on the CADE machines
+
 ## Progress
 
 * I can detect with 53% accuracy whether or not a given sentence has an opinion simply by using "bag of words" features.
@@ -33,6 +40,7 @@ We should modify the sentence gatherer accordingly.
 its own frame when placed in a JSON file, meaning a single sentence that has six opinions in it will have six different
 frames to represent it. The opinion extractor will take a single sentence and return a collection of opinion expressions
 it found inside.
+* So I'm getting 46% accuracy on the sentiment step, both on CADE and on my local machine. So that needs to be patched up.
 
 ## Resources
 
