@@ -18,6 +18,7 @@ My project for information extraction. This README will explain more about it. E
 - [x] Polarity of sentence
 - [x] Debug it on the CADE machines
 - [ ] Add a bunch of features
+- [ ] Extract everything and print it out
 
 ## Progress
 

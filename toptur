@@ -171,7 +171,7 @@ class TopTur < Thor
 		exec("java -jar #{JAR_NAME} test #{opts}")
 	end
 
-	desc 'extract [FILE1] ...', 'Extract opinions from the individual file or files and print them in a readable format'
+	desc 'extract [FILE1] ...', 'Extract opinions from an individual file or files and print them in a readable format'
 	def extract(*files)
 		setup
 
