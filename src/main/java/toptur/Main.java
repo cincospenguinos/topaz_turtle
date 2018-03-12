@@ -579,7 +579,7 @@ public class Main
 					break;
 				case OBJECTIVITY_OF_WORD:
 					id = manager.getIdFor(feature, "");
-					double objectivity = sentiWordNetDictionary.getObjectivityOf(word);
+					int objectivity = sentiWordNetDictionary.getObjectivityOf(word);
 					featureVector.put(id, id + ":" + objectivity);
 					break;
 				}	
@@ -750,7 +750,7 @@ public class Main
 					break;
 				case OBJECTIVITY_OF_WORD:
 					id = manager.getIdFor(feature, "");
-					double objectivity = sentiWordNetDictionary.getObjectivityOf(word);
+					int objectivity = sentiWordNetDictionary.getObjectivityOf(word);
 					featureVector.put(id, id + ":" + objectivity);
 					break;
 				}	
