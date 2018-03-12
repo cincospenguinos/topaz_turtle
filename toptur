@@ -188,6 +188,18 @@ class TopTur < Thor
 		exec("java -jar #{JAR_NAME} extract #{files * " "}")
 	end
 
+	desc 'explore', 'Explore the dataset'
+	def explore
+	    setup
+
+        unless @@settings[:separated]
+            STDERR.puts 'Dataset not converted! Please run `./toptur convert` before attempting to train'
+            exit(1)
+        end
+
+        exec("java -jar #{JAR_NAME} explore")
+	end
+
 	desc 'reset', "Reset old run's data and start over"
 	def reset
 		`rm -rf #{DATA_DIRECTORY}`
