@@ -39,7 +39,7 @@ public class Main
 	public static final String AGENT_TEST_FILE = TOPTUR_DATA_FOLDER + "agent_test.vector";
 
 	public static final String TARGET_TRAINING_FILE = TOPTUR_DATA_FOLDER + "target_train.vector";
-	public static final String TARGET_MODEL_FILE = TOPTUR_DATA_FOLDER + ".liblinear_models/target.model";
+	public static final String TARGET_MODEL_FILE = TOPTUR_DATA_FOLDER + "liblinear_models/target.model";
 	public static final String TARGET_TEST_FILE = TOPTUR_DATA_FOLDER + "target_test.vector";
 
 	public static final String OPINION_TRAINING_FILE = TOPTUR_DATA_FOLDER + "opinion_train.vector";
@@ -48,6 +48,9 @@ public class Main
 
 	public static final String LIB_LINEAR_FEATURE_MANAGER_FILE = TOPTUR_DATA_FOLDER
 			+ "/lib_linear_feature_manager.json";
+	public static final String SENTIMENT_TRAINING_FILE = TOPTUR_DATA_FOLDER + "sentiment_train.vector";
+	public static final String SENTIMENT_TEST_FILE = TOPTUR_DATA_FOLDER + "sentiment_test.vector";
+	public static final String SENTIMENT_MODEL_FILE = TOPTUR_DATA_FOLDER + "liblinear_models/sentiment.model";
 
 	public static final String SENTI_WORD_NET_FILE = "sentiwordnet.txt";
 
@@ -97,7 +100,12 @@ public class Main
 			trainLibLinear(OPINION_TRAINING_FILE, OPINION_MODEL_FILE);
 			testLibLinear(OPINION_TRAINING_FILE, OPINION_MODEL_FILE, "/dev/null");
 
-			LibLinearFeatureManager.saveInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
+            // Train to determine polarity of a given sentence
+			createPolarityVectorFile(devArticles, SENTIMENT_TRAINING_FILE);
+			trainLibLinear(SENTIMENT_TRAINING_FILE, SENTIMENT_MODEL_FILE);
+			testLibLinear(SENTIMENT_TRAINING_FILE, SENTIMENT_MODEL_FILE, "/dev/null");
+
+            LibLinearFeatureManager.saveInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
 		} else if (task.equals("test"))
 		{
@@ -122,11 +130,13 @@ public class Main
 			createTrainVectorFileAgent(testArticles, AGENT_TEST_FILE);
 			createTrainVectorFileTarget(testArticles, TARGET_TEST_FILE);
 			createOpinionVectorFile(testArticles, OPINION_TEST_FILE);
+			createPolarityVectorFile(testArticles, SENTIMENT_TEST_FILE);
 
 			testLibLinear(SENTENCES_TEST_FILE, SENTENCES_MODEL_FILE, "/dev/null");
 			testLibLinear(AGENT_TEST_FILE, AGENT_MODEL_FILE, "/dev/null");
 			testLibLinear(TARGET_TEST_FILE, TARGET_MODEL_FILE, "/dev/null");
 			testLibLinear(OPINION_TEST_FILE, OPINION_MODEL_FILE, "/dev/null");
+			testLibLinear(SENTIMENT_TEST_FILE, SENTIMENT_MODEL_FILE, "/dev/null");
 
 			// Extract the opinions
 			// Let's time how long it takes
@@ -184,6 +194,85 @@ public class Main
 		}
 	}
 
+	/**
+	 * Creates a vector file for the polarity of a given sentence.
+	 *
+	 * @param articles - articles to create file from
+	 * @param vectorFileName - name of the file
+	 */
+	private static void createPolarityVectorFile(List<NewsArticle> articles, String vectorFileName) {
+		LibLinearFeatureManager manager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
+		StringBuilder vectorFileBuilder = new StringBuilder();
+
+		for (NewsArticle a : articles) {
+			for (Opinion o : a.getGoldStandardOpinions().values()) {
+				vectorFileBuilder.append(o.sentimentId());
+				vectorFileBuilder.append(' ');
+
+				Sentence sentence = new Sentence(o.sentence);
+				TreeMap<Integer, String> stupidMap = new TreeMap<Integer, String>();
+				for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature.values()) {
+					int id;
+
+					switch(feature) {
+						case CONTAINS_UNIGRAM:
+							for (String w : sentence.words()) {
+								id = manager.getIdFor(feature, w);
+								stupidMap.put(id, id + ":1");
+							}
+							break;
+						case CONTAINS_BIGRAM:
+							for (int i = 0; i <= sentence.words().size(); i++) {
+								String bigram;
+
+								if (i == 0) {
+									bigram = PHI_WORD + " " + sentence.word(i);
+								} else if (i == sentence.words().size()) {
+									bigram = sentence.word(i - 1) + " " + OMEGA_WORD;
+								} else {
+									bigram = sentence.word(i - 1) + " " + sentence.word(i);
+								}
+
+								id = manager.getIdFor(feature, bigram);
+								stupidMap.put(id, id + ":1");
+							}
+							break;
+						case OBJECTIVITY_OF_SENTENCE:
+							int objectivity = 0;
+
+							for (String w : sentence.words())
+								objectivity += sentiWordNetDictionary.getObjectivityOf(w);
+
+							objectivity /= sentence.words().size();
+
+							id = manager.getIdFor(feature, "");
+							stupidMap.put(id, id + ":" + objectivity);
+
+							break;
+					}
+				}
+
+				for (String s : stupidMap.values()) {
+					vectorFileBuilder.append(s);
+					vectorFileBuilder.append(' ');
+				}
+
+				vectorFileBuilder.append('\n');
+			}
+		}
+
+		try
+		{
+			PrintWriter vectorFile = new PrintWriter(vectorFileName);
+			vectorFile.print(vectorFileBuilder.toString());
+			vectorFile.flush();
+			vectorFile.close();
+		} catch (FileNotFoundException e)
+		{
+			e.printStackTrace();
+		}
+	}
+
 	/////////////////////
 	// DATA PROCESSING //
 	/////////////////////
@@ -231,8 +320,7 @@ public class Main
 	 * @param articles
 	 * @param nameOfVectorFile
 	 */
-	private static void createSentencesVectorFile(ArrayList<NewsArticle> articles, String nameOfVectorFile)
-	{
+	private static void createSentencesVectorFile(ArrayList<NewsArticle> articles, String nameOfVectorFile) {
 		StringBuilder vectorFileBuilder = new StringBuilder();
 		LibLinearFeatureManager libLinearFeatureManager = LibLinearFeatureManager
 				.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
@@ -288,10 +376,11 @@ public class Main
 							id = libLinearFeatureManager.getIdFor(feature, bigram);
 							libLinearFeatureVector.put(id, true);
 						}
+
 						break;
 					case OBJECTIVITY_OF_SENTENCE:
 						id = libLinearFeatureManager.getIdFor(feature, "");
-						double objectivity = 0.0;
+						int objectivity = 0;
 
 						for (String w : words)
 						{
@@ -384,8 +473,10 @@ public class Main
 	 *
 	 * This vector file contains features for identifying the Agent of an opinion.
 	 *
-	 * @param articles
-	 * @param nameOfVectorFile
+	 * @param article
+	 * @param opinion_phrase
+	 * @param start
+	 * @param end
 	 */
 	private static String createVectorFileAgent(NewsArticle article, String opinion_phrase, int start, int end)
 	{
@@ -553,8 +644,10 @@ public class Main
 	 * 
 	 * This vector file contains features for identifying the Target of an opinion.
 	 * 
-	 * @param articles
-	 * @param nameOfVectorFile
+	 * @param article
+	 * @param opinion_phrase
+	 * @param start
+	 * @param end
 	 */
 	private static String createVectorFileTarget(NewsArticle article, String opinion_phrase, int start, int end)
 	{
@@ -683,20 +776,16 @@ public class Main
 		return vectorFileBuilder.toString();
 	}
 
-	/**
-	 * CAN WE GET RID OF THIS?
-	 * 
-	 * Generates a vector file in LibLinear format for whatever articles are
-	 * provided.
-	 * 
-	 * This vector file contains features for identifying the Target of an opinion.
-	 * 
-	 * @param sentence,
-	 *            nameOfVectorFile
-	 * @param nameOfVectorFile
-	 */
-	private static void createSingleSentenceVectorFile(Sentence sentence, String nameOfVectorFile)
-	{
+
+    /**
+     * Generates a vector file in LibLinear format for whatever articles are provided.
+     * 
+     * This vector file contains features for identifying the Target of an opinion. 
+     * 
+     * @param sentence, nameOfVectorFile
+     * @param nameOfVectorFile
+     */
+	private static void createSingleSentenceVectorFile(Sentence sentence, String nameOfVectorFile) {
 		StringBuilder vectorFileBuilder = new StringBuilder();
 		LibLinearFeatureManager libLinearFeatureManager = LibLinearFeatureManager
 				.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
@@ -742,10 +831,9 @@ public class Main
 				break;
 			case OBJECTIVITY_OF_SENTENCE:
 				int id = libLinearFeatureManager.getIdFor(feature, "");
-				double objectivity = 0.0;
+				int objectivity = 0;
 
-				for (String w : words)
-				{
+				for (String w : words) {
 					objectivity += sentiWordNetDictionary.getObjectivityOf(w);
 				}
 
@@ -783,14 +871,22 @@ public class Main
 		}
 	}
 
-	// IS THIS A TEST VECTOR FILE? HELPER FOR OPINION VECTOR FILE?
-	private static void createSingleWordVectorFile(String previousWord, String thisWord, String nextWord,
-			String previousPos, String thisPos, String nextPos, String fileName)
-	{
-		LibLinearFeatureManager manager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
-		StringBuilder vectorFileBuilder = new StringBuilder();
-		vectorFileBuilder.append(0);
-		vectorFileBuilder.append(' ');
+	/**
+	 * Creates a vector file for a single word. Use for BIO labeling.
+	 *
+	 * @param previousWord
+	 * @param thisWord
+	 * @param nextWord
+	 * @param previousPos
+	 * @param thisPos
+	 * @param nextPos
+	 * @param fileName
+	 */
+	private static void createSingleWordVectorFile(String previousWord, String thisWord, String nextWord, String previousPos, String thisPos, String nextPos, String fileName) {
+	    LibLinearFeatureManager manager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
+	    StringBuilder vectorFileBuilder = new StringBuilder();
+	    vectorFileBuilder.append(0);
+	    vectorFileBuilder.append(' ');
 
 		TreeMap<Integer, String> stupidMap = new TreeMap<Integer, String>();
 		for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature.values())
@@ -798,35 +894,35 @@ public class Main
 			int id;
 			switch (feature)
 			{
-			case PREVIOUS_UNIGRAM:
-				id = manager.getIdFor(feature, previousWord);
-				stupidMap.put(id, id + ":1");
-				break;
-			case THIS_UNIGRAM:
-				id = manager.getIdFor(feature, thisWord);
-				stupidMap.put(id, id + ":1");
-				break;
-			case NEXT_UNIGRAM:
-				id = manager.getIdFor(feature, nextWord);
-				stupidMap.put(id, id + ":1");
-				break;
-			case PREVIOUS_PART_OF_SPEECH:
-				id = manager.getIdFor(feature, previousPos);
-				stupidMap.put(id, id + ":1");
-				break;
-			case THIS_PART_OF_SPEECH:
-				id = manager.getIdFor(feature, thisPos);
-				stupidMap.put(id, id + ":1");
-				break;
-			case NEXT_PART_OF_SPEECH:
-				id = manager.getIdFor(feature, nextPos);
-				stupidMap.put(id, id + ":1");
-				break;
-			case OBJECTIVITY_OF_WORD:
-				id = manager.getIdFor(feature, "");
-				double objectivity = sentiWordNetDictionary.getObjectivityOf(thisWord);
-				stupidMap.put(id, id + ":" + objectivity);
-				break;
+				case PREVIOUS_UNIGRAM:
+					id = manager.getIdFor(feature, previousWord);
+					stupidMap.put(id, id + ":1");
+					break;
+				case THIS_UNIGRAM:
+					id = manager.getIdFor(feature, thisWord);
+					stupidMap.put(id, id + ":1");
+					break;
+				case NEXT_UNIGRAM:
+					id = manager.getIdFor(feature, nextWord);
+					stupidMap.put(id, id + ":1");
+					break;
+				case PREVIOUS_PART_OF_SPEECH:
+					id = manager.getIdFor(feature, previousPos);
+					stupidMap.put(id, id + ":1");
+					break;
+				case THIS_PART_OF_SPEECH:
+					id = manager.getIdFor(feature, thisPos);
+					stupidMap.put(id, id + ":1");
+					break;
+				case NEXT_PART_OF_SPEECH:
+					id = manager.getIdFor(feature, nextPos);
+					stupidMap.put(id, id + ":1");
+					break;
+				case OBJECTIVITY_OF_WORD:
+					id = manager.getIdFor(feature, "");
+					double objectivity = sentiWordNetDictionary.getObjectivityOf(thisWord);
+					stupidMap.put(id, id + ":" + objectivity);
+					break;
 			}
 		}
 
@@ -1039,9 +1135,8 @@ public class Main
 	///////////////////////
 	// TRAIN CLASSIFIERS //
 	///////////////////////
-
-	private static void trainLibLinear(String vectorFileName, String modelFileName)
-	{
+	
+	private static void trainLibLinear(String vectorFileName, String modelFileName) {
 		// Now that the vector file is put together, we need to run liblinear
 		try
 		{
@@ -1056,8 +1151,7 @@ public class Main
 	// TEST CLASSIFIERS //
 	//////////////////////
 
-	private static void testLibLinear(String testVectorFileName, String modelFileName, String outputFileName)
-	{
+	private static void testLibLinear(String testVectorFileName, String modelFileName, String outputFileName) {
 		// Now that the vector file is put together, we need to run liblinear
 		try
 		{
@@ -1084,9 +1178,8 @@ public class Main
 	// EXTRACT/EVALUATE WITH CLASSIFIER //
 	//////////////////////////////////////
 
-	// Use Classifer to determine if a sentence has an opinion
-	private static boolean sentenceContainsOpinion(Sentence sentence)
-	{
+	// Evaluate
+	private static boolean sentenceContainsOpinion(Sentence sentence) {
 		String name = "some_file.vector";
 		createSingleSentenceVectorFile(sentence, name);
 
@@ -1277,8 +1370,7 @@ public class Main
 	// HELPER METHODS //
 	////////////////////
 
-	private static void getSentiWordNet()
-	{
+	private static void getSentiWordNet() {
 		sentiWordNetDictionary = new SentiWordNetDictionary();
 
 		try
