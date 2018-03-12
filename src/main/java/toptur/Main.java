@@ -920,7 +920,7 @@ public class Main
 					break;
 				case OBJECTIVITY_OF_WORD:
 					id = manager.getIdFor(feature, "");
-					double objectivity = sentiWordNetDictionary.getObjectivityOf(thisWord);
+					int objectivity = sentiWordNetDictionary.getObjectivityOf(thisWord);
 					stupidMap.put(id, id + ":" + objectivity);
 					break;
 			}
@@ -1091,7 +1091,7 @@ public class Main
 							break;
 						case OBJECTIVITY_OF_WORD:
 							id = manager.getIdFor(feature, "");
-							double objectivity = sentiWordNetDictionary.getObjectivityOf(word);
+							int objectivity = sentiWordNetDictionary.getObjectivityOf(word);
 							stupidMap.put(id, id + ":" + objectivity);
 							break;
 						}
