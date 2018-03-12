@@ -74,8 +74,7 @@ public class Main
 		System.out.println("Gathering SentiWordNet dictionary...");
 		getSentiWordNet();
 
-		// String task = args[0].toLowerCase();
-		String task = "train";
+		 String task = args[0].toLowerCase();
 		if (task.equals("train"))
 		{
 			ArrayList<NewsArticle> devArticles = getAllDocsFrom(DEV_DOCS);
@@ -143,7 +142,7 @@ public class Main
 			System.out.println("Starting extraction...");
 			long startTime = System.currentTimeMillis();
 			for (NewsArticle a : testArticles)
-				extractAllOpinionsFor(a);
+				extractOpinionFramesForArticle(a);
 			long endTime = System.currentTimeMillis();
 
 			System.out.println(((double) endTime - startTime) / 1000.0 + " seconds");
@@ -159,7 +158,7 @@ public class Main
 				if (file.exists())
 				{
 					NewsArticle article = new NewsArticle(file);
-					extractAllOpinionsFor(article);
+					extractOpinionFramesForArticle(article);
 					System.out.println(article);
 				} else
 				{
@@ -641,9 +640,9 @@ public class Main
 	/**
 	 * Generates a vector file in LibLinear format for whatever articles are
 	 * provided.
-	 * 
+	 *
 	 * This vector file contains features for identifying the Target of an opinion.
-	 * 
+	 *
 	 * @param article
 	 * @param opinion_phrase
 	 * @param start
@@ -656,17 +655,17 @@ public class Main
 				.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
 		HashMap<String, Opinion> gold = article.getGoldStandardOpinions();
-		
+
 		Opinion opinion = gold.get(opinion_phrase);
-		
+
 		String sentence = opinion.sentence;
 		ArrayList<String> words = new ArrayList<String>();
-		
+
 		for (int i = start; i < end; i++)
 		{
 			words.add(getText(sentence, i));
 		}
-		
+
 		words.add("w");
 		words.add("null");
 
@@ -675,7 +674,7 @@ public class Main
 			String word = getText(sentence, i);
 			String pos = getPos(sentence, i);
 
-			
+
 			StringBuilder vectorLineBuilder = new StringBuilder();
 			TreeMap<Integer, Object> featureVector = new TreeMap<Integer, Object>();
 
@@ -692,8 +691,8 @@ public class Main
 			for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature
 					.values())
 			{
-				int id;		
-				
+				int id;
+
 				switch (feature)
 				{
 				case PREVIOUS_UNIGRAM:
@@ -713,7 +712,7 @@ public class Main
 					break;
 				case NEXT_UNIGRAM:
 					String next;
-					
+
 					if (i < getSize(sentence) - 1)
 						next = getText(sentence, i + 1);
 					else
@@ -753,8 +752,8 @@ public class Main
 					int objectivity = sentiWordNetDictionary.getObjectivityOf(word);
 					featureVector.put(id, id + ":" + objectivity);
 					break;
-				}	
-				
+				}
+
 			}
 
 			for (Map.Entry<Integer, Object> e : featureVector.entrySet())
@@ -772,7 +771,7 @@ public class Main
 			vectorFileBuilder.append(vectorLineBuilder.toString());
 			vectorFileBuilder.append("\n");
 		}
-	
+
 		return vectorFileBuilder.toString();
 	}
 
@@ -1118,8 +1117,6 @@ public class Main
 			}
 		}
 
-		// TODO: Should we do this with non-opinionated sentences as well?
-
 		try
 		{
 			PrintWriter vectorFile = new PrintWriter(opinionTrainingFile);
@@ -1130,6 +1127,99 @@ public class Main
 		{
 			e.printStackTrace();
 		}
+	}
+
+	/**
+	 * Extracts polarity of a given sentence
+	 *
+	 * @param sentence -
+	 * @return String
+	 */
+	private static String extractPolarityOfSentence(Sentence sentence) {
+		StringBuilder vectorFileBuilder = new StringBuilder();
+		LibLinearFeatureManager manager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
+
+		String vectorFileName = "polarity_herp.vector";
+
+		vectorFileBuilder.append(0);
+		vectorFileBuilder.append(' ');
+
+		TreeMap<Integer, String> stupidMap = new TreeMap<Integer, String>();
+
+		for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature.values()) {
+			int id;
+
+			switch(feature) {
+				case CONTAINS_UNIGRAM:
+					for (String w : sentence.words()) {
+						id = manager.getIdFor(feature, w);
+						stupidMap.put(id, id + ":1");
+					}
+					break;
+				case CONTAINS_BIGRAM:
+					for (int i = 0; i <= sentence.words().size(); i++) {
+						String bigram;
+
+						if (i == 0) {
+							bigram = PHI_WORD + " " + sentence.word(i);
+						} else if (i == sentence.words().size()) {
+							bigram = sentence.word(i - 1) + " " + OMEGA_WORD;
+						} else {
+							bigram = sentence.word(i - 1) + " " + sentence.word(i);
+						}
+
+						id = manager.getIdFor(feature, bigram);
+						stupidMap.put(id, id + ":1");
+					}
+					break;
+				case OBJECTIVITY_OF_SENTENCE:
+					int objectivity = 0;
+
+					for (String w : sentence.words())
+						objectivity += sentiWordNetDictionary.getObjectivityOf(w);
+
+					objectivity /= sentence.words().size();
+
+					id = manager.getIdFor(feature, "");
+					stupidMap.put(id, id + ":" + objectivity);
+
+					break;
+			}
+		}
+
+		for (String s : stupidMap.values()) {
+			vectorFileBuilder.append(s);
+			vectorFileBuilder.append(' ');
+		}
+
+		vectorFileBuilder.append('\n');
+
+		try
+		{
+			PrintWriter vectorFile = new PrintWriter(vectorFileName);
+			vectorFile.print(vectorFileBuilder.toString());
+			vectorFile.flush();
+			vectorFile.close();
+		} catch (FileNotFoundException e)
+		{
+			e.printStackTrace();
+		}
+
+		try {
+			Runtime.getRuntime().exec("./liblinear_predict " + vectorFileName + " " + SENTIMENT_MODEL_FILE + " herp.txt");
+			Thread.sleep(100); // to give the machine time to print to file
+			Scanner s = new Scanner(new File("herp.txt"));
+			int id = Integer.parseInt(s.next());
+			s.close();
+
+			return Opinion.fromSentimentId(id);
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+
+		return null;
 	}
 
 	///////////////////////
@@ -1206,21 +1296,25 @@ public class Main
 		return false;
 	}
 
-	// This is for evaluating
-	private static void extractAllOpinionsFor(NewsArticle article)
+	/**
+	 * Extracts all opinion frames found in a given news article.
+	 *
+	 * @param article - Article to extract from
+	 */
+	private static void extractOpinionFramesForArticle(NewsArticle article)
 	{
 		Document doc = new Document(article.getFullText());
 
 		for (Sentence s : doc.sentences())
 		{
-
 			if (sentenceContainsOpinion(s))
 			{
-				for (String opinionExpression : extractAllOpinionsFrom(s))
+				for (String opinionExpression : getAllOpinionsInSentence(s))
 				{
 					Opinion o = new Opinion();
 					o.opinion = opinionExpression;
 					o.sentence = s.toString();
+					o.sentiment = extractPolarityOfSentence(s);
 
 					// TODO: Add agent/target/polarity
 
@@ -1237,7 +1331,7 @@ public class Main
 	 *            - Sentence to get opinions from
 	 * @return Set of type String
 	 */
-	private static Set<String> extractAllOpinionsFrom(Sentence s)
+	private static Set<String> getAllOpinionsInSentence(Sentence s)
 	{
 		String name = "some_file.vector";
 
@@ -1307,7 +1401,12 @@ public class Main
 		return allOpinions;
 	}
 
-	// Evaluate
+	/**
+	 * Evaluates the extracted opinions, given whatever evaluation options desired.
+	 *
+	 * @param articles
+	 * @param evaluationOptions
+	 */
 	private static void evaluateExtractedOpinions(ArrayList<NewsArticle> articles,
 			Set<EvaluationOption> evaluationOptions)
 	{

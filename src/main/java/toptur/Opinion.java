@@ -20,7 +20,7 @@ public class Opinion {
                 return o1.agent.equals(o2.agent);
             case TARGET:
                 return o1.target.equals(o2.target);
-            case SENTIMENT:
+            case POLARITY:
                 return o1.sentiment.equals(o2.sentiment);
             default:
                 return false;
