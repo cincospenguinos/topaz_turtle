@@ -1,5 +1,7 @@
 package toptur;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import edu.stanford.nlp.pipeline.StanfordCoreNLP;
 import edu.stanford.nlp.simple.Document;
 import edu.stanford.nlp.simple.Sentence;
@@ -8,6 +10,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.lang.reflect.Type;
 import java.util.*;
 
 /**
@@ -46,16 +49,17 @@ public class Main
 	public static final String OPINION_TEST_FILE = TOPTUR_DATA_FOLDER + "opinion_test.vector";
 	public static final String OPINION_MODEL_FILE = TOPTUR_DATA_FOLDER + "liblinear_models/opinion.model";
 
-	public static final String LIB_LINEAR_FEATURE_MANAGER_FILE = TOPTUR_DATA_FOLDER
-			+ "/lib_linear_feature_manager.json";
 	public static final String SENTIMENT_TRAINING_FILE = TOPTUR_DATA_FOLDER + "sentiment_train.vector";
 	public static final String SENTIMENT_TEST_FILE = TOPTUR_DATA_FOLDER + "sentiment_test.vector";
 	public static final String SENTIMENT_MODEL_FILE = TOPTUR_DATA_FOLDER + "liblinear_models/sentiment.model";
 
+	public static final String LIB_LINEAR_FEATURE_MANAGER_FILE = TOPTUR_DATA_FOLDER
+			+ "/lib_linear_feature_manager.json";
 	public static final String SENTI_WORD_NET_FILE = "sentiwordnet.txt";
+	public static final String RELATED_WORDS_FILE = TOPTUR_DATA_FOLDER + "related_words.json";
 
 	private static SentiWordNetDictionary sentiWordNetDictionary;
-	private static volatile StanfordCoreNLP stanfordCoreNLP;
+	private static Map<String, String[]> relatedWordsMap;
 
 	private static final String PHI_WORD = "__PHI__";
 	private static final String PHI_POS = "__PHI_POS__";
@@ -73,8 +77,9 @@ public class Main
 
 		System.out.println("Gathering SentiWordNet dictionary...");
 		getSentiWordNet();
+		getRelatedWordsMap();
 
-		 String task = args[0].toLowerCase();
+		String task = args[0].toLowerCase();
 		if (task.equals("train"))
 		{
 			ArrayList<NewsArticle> devArticles = getAllDocsFrom(DEV_DOCS);
@@ -200,7 +205,6 @@ public class Main
 	 * @param vectorFileName - name of the file
 	 */
 	private static void createPolarityVectorFile(List<NewsArticle> articles, String vectorFileName) {
-		LibLinearFeatureManager manager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 		StringBuilder vectorFileBuilder = new StringBuilder();
 
 		for (NewsArticle a : articles) {
@@ -209,53 +213,8 @@ public class Main
 				vectorFileBuilder.append(' ');
 
 				Sentence sentence = new Sentence(o.sentence);
-				TreeMap<Integer, String> stupidMap = new TreeMap<Integer, String>();
-				for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature.values()) {
-					int id;
-
-					switch(feature) {
-						case CONTAINS_UNIGRAM:
-							for (String w : sentence.words()) {
-								id = manager.getIdFor(feature, w);
-								stupidMap.put(id, id + ":1");
-							}
-							break;
-						case CONTAINS_BIGRAM:
-							for (int i = 0; i <= sentence.words().size(); i++) {
-								String bigram;
-
-								if (i == 0) {
-									bigram = PHI_WORD + " " + sentence.word(i);
-								} else if (i == sentence.words().size()) {
-									bigram = sentence.word(i - 1) + " " + OMEGA_WORD;
-								} else {
-									bigram = sentence.word(i - 1) + " " + sentence.word(i);
-								}
-
-								id = manager.getIdFor(feature, bigram);
-								stupidMap.put(id, id + ":1");
-							}
-							break;
-						case OBJECTIVITY_OF_SENTENCE:
-							int objectivity = 0;
-
-							for (String w : sentence.words())
-								objectivity += sentiWordNetDictionary.getObjectivityOf(w);
-
-							objectivity /= sentence.words().size();
-
-							id = manager.getIdFor(feature, "");
-							stupidMap.put(id, id + ":" + objectivity);
-
-							break;
-					}
-				}
-
-				for (String s : stupidMap.values()) {
-					vectorFileBuilder.append(s);
-					vectorFileBuilder.append(' ');
-				}
-
+				String line = generateSentenceLineVectorFileString(null, sentence);
+				vectorFileBuilder.append(line);
 				vectorFileBuilder.append('\n');
 			}
 		}
@@ -281,8 +240,8 @@ public class Main
 	 * 
 	 * Reads gold standard data and populates in NewsArticles.
 	 *
-	 * @param path
-	 * @return
+	 * @param path -
+	 * @return __
 	 */
 	private static ArrayList<NewsArticle> getAllDocsFrom(String path)
 	{
@@ -309,20 +268,16 @@ public class Main
 	////////////////////////
 
 	/**
-	 * CAN WE GET RID OF THIS? 
-	 * 
 	 * Generates a vector file in LibLinear format for whatever articles are
 	 * provided.
 	 * 
 	 * This vector file contains features for identifying an opinionated sentence.
 	 *
-	 * @param articles
-	 * @param nameOfVectorFile
+	 * @param articles -
+	 * @param nameOfVectorFile -
 	 */
 	private static void createSentencesVectorFile(ArrayList<NewsArticle> articles, String nameOfVectorFile) {
 		StringBuilder vectorFileBuilder = new StringBuilder();
-		LibLinearFeatureManager libLinearFeatureManager = LibLinearFeatureManager
-				.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
 		for (NewsArticle article : articles)
 		{
@@ -331,7 +286,6 @@ public class Main
 			for (Sentence s : doc.sentences())
 			{
 				StringBuilder vectorLineBuilder = new StringBuilder();
-				TreeMap<Integer, Object> libLinearFeatureVector = new TreeMap<Integer, Object>();
 
 				// The label for this sentence
 				if (article.sentenceHasOpinion(s.toString()))
@@ -339,84 +293,9 @@ public class Main
 				else
 					vectorLineBuilder.append(0);
 
-				List<String> words = s.words();
-
-				// Creating the feature vectors
-				for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature
-						.values())
-				{
-					int id;
-
-					switch (feature)
-					{
-					case CONTAINS_UNIGRAM:
-						for (String w : words)
-						{
-							id = libLinearFeatureManager.getIdFor(feature, w);
-							libLinearFeatureVector.put(id, true);
-						}
-						break;
-					case CONTAINS_BIGRAM:
-						String bigram;
-
-						for (int i = 0; i < words.size() + 1; i++)
-						{
-							if (i == 0)
-							{
-								bigram = PHI_WORD + " " + words.get(i);
-							} else if (i == words.size())
-							{
-								bigram = words.get(i - 1) + " " + OMEGA_WORD;
-							} else
-							{
-								bigram = words.get(i - 1) + " " + words.get(i);
-							}
-
-							id = libLinearFeatureManager.getIdFor(feature, bigram);
-							libLinearFeatureVector.put(id, true);
-						}
-
-						break;
-					case OBJECTIVITY_OF_SENTENCE:
-						id = libLinearFeatureManager.getIdFor(feature, "");
-						int objectivity = 0;
-
-						for (String w : words)
-						{
-							objectivity += sentiWordNetDictionary.getObjectivityOf(w);
-						}
-
-						objectivity /= words.size();
-						libLinearFeatureVector.put(id, objectivity);
-
-						break;
-
-					// case HAS_WORD_RELATED_TO_OTHER_WORD:
-					// for (String w : words) {
-					// DataMuseWord[] dataMuseWords = DataMuse.getWordsRelatedTo(w);
-					// if (dataMuseWords == null)
-					// continue;
-					//
-					// for (DataMuseWord dmw : dataMuseWords) {
-					// id = libLinearFeatureManager.getIdFor(feature, dmw.word);
-					// libLinearFeatureVector.put(id, true);
-					// }
-					// }
-					// break;
-					}
-				}
-
-				for (Map.Entry<Integer, Object> e : libLinearFeatureVector.entrySet())
-				{
-					vectorLineBuilder.append(" ");
-					vectorLineBuilder.append(e.getKey());
-					vectorLineBuilder.append(":");
-
-					if (e.getValue() instanceof Boolean)
-						vectorLineBuilder.append(1);
-					else
-						vectorLineBuilder.append(e.getValue());
-				}
+				String line = generateSentenceLineVectorFileString(null, s);
+				vectorLineBuilder.append(' ');
+				vectorLineBuilder.append(line);
 
 				vectorFileBuilder.append(vectorLineBuilder.toString());
 				vectorFileBuilder.append("\n");
@@ -433,6 +312,112 @@ public class Main
 		{
 			e.printStackTrace();
 		}
+	}
+
+	/**
+	 * Creates a single line for LibLinear of the given sentence from the news article provided.
+	 *
+	 * @param article -
+	 * @param sentence -
+	 * @return String for liblinear to mange
+	 */
+	private static String generateSentenceLineVectorFileString(NewsArticle article, Sentence sentence) {
+		StringBuilder vectorLineBuilder = new StringBuilder();
+		TreeMap<Integer, Object> libLinearFeatureVector = new TreeMap<Integer, Object>();
+		LibLinearFeatureManager manager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
+
+		// The label for this sentence
+		if (article != null) {
+			if (article.sentenceHasOpinion(sentence.toString()))
+				vectorLineBuilder.append(1);
+			else
+				vectorLineBuilder.append(0);
+		}
+
+		List<String> words = sentence.words();
+
+		// Creating the feature vectors
+		for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature.values())
+		{
+			int id;
+
+			switch (feature)
+			{
+				case CONTAINS_UNIGRAM:
+					for (String w : words)
+					{
+						id = manager.getIdFor(feature, w);
+						libLinearFeatureVector.put(id, true);
+					}
+					break;
+				case CONTAINS_BIGRAM:
+					String bigram;
+
+					for (int i = 0; i < words.size() + 1; i++)
+					{
+						if (i == 0)
+						{
+							bigram = PHI_WORD + " " + words.get(i);
+						} else if (i == words.size())
+						{
+							bigram = words.get(i - 1) + " " + OMEGA_WORD;
+						} else
+						{
+							bigram = words.get(i - 1) + " " + words.get(i);
+						}
+
+						id = manager.getIdFor(feature, bigram);
+						libLinearFeatureVector.put(id, true);
+					}
+
+					break;
+				case OBJECTIVITY_OF_SENTENCE:
+					id = manager.getIdFor(feature, "");
+					int objectivity = 0;
+
+					for (String w : words)
+					{
+						objectivity += sentiWordNetDictionary.getObjectivityOf(w);
+					}
+
+					objectivity /= words.size();
+					libLinearFeatureVector.put(id, objectivity);
+
+					break;
+
+				case HAS_WORD_RELATED_TO_OTHER_WORD:
+				case OBJECTIVITY_OF_RELATED_WORD:
+					for (String w : words) {
+						if (!relatedWordsMap.containsKey(w.toLowerCase())) {
+							relatedWordsMap.put(w.toLowerCase(), getWordsRelatedTo(w.toLowerCase()));
+						}
+
+						for (String relatedWord : relatedWordsMap.get(w.toLowerCase())) {
+							id = manager.getIdFor(LibLinearFeatureManager.LibLinearFeature.HAS_WORD_RELATED_TO_OTHER_WORD, relatedWord);
+							libLinearFeatureVector.put(id, true);
+
+							objectivity = sentiWordNetDictionary.getObjectivityOf(relatedWord);
+							id = manager.getIdFor(LibLinearFeatureManager.LibLinearFeature.OBJECTIVITY_OF_RELATED_WORD, "");
+							libLinearFeatureVector.put(id, objectivity);
+						}
+					}
+					break;
+			}
+		}
+
+		for (Map.Entry<Integer, Object> e : libLinearFeatureVector.entrySet())
+		{
+			vectorLineBuilder.append(" ");
+			vectorLineBuilder.append(e.getKey());
+			vectorLineBuilder.append(":");
+
+			if (e.getValue() instanceof Boolean)
+				vectorLineBuilder.append(1);
+			else
+				vectorLineBuilder.append(e.getValue());
+		}
+
+		return vectorLineBuilder.toString();
 	}
 	
 	private static void createTrainVectorFileAgent(ArrayList<NewsArticle> articles, String nameOfVectorFile)
@@ -1144,54 +1129,8 @@ public class Main
 		vectorFileBuilder.append(0);
 		vectorFileBuilder.append(' ');
 
-		TreeMap<Integer, String> stupidMap = new TreeMap<Integer, String>();
-
-		for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature.values()) {
-			int id;
-
-			switch(feature) {
-				case CONTAINS_UNIGRAM:
-					for (String w : sentence.words()) {
-						id = manager.getIdFor(feature, w);
-						stupidMap.put(id, id + ":1");
-					}
-					break;
-				case CONTAINS_BIGRAM:
-					for (int i = 0; i <= sentence.words().size(); i++) {
-						String bigram;
-
-						if (i == 0) {
-							bigram = PHI_WORD + " " + sentence.word(i);
-						} else if (i == sentence.words().size()) {
-							bigram = sentence.word(i - 1) + " " + OMEGA_WORD;
-						} else {
-							bigram = sentence.word(i - 1) + " " + sentence.word(i);
-						}
-
-						id = manager.getIdFor(feature, bigram);
-						stupidMap.put(id, id + ":1");
-					}
-					break;
-				case OBJECTIVITY_OF_SENTENCE:
-					int objectivity = 0;
-
-					for (String w : sentence.words())
-						objectivity += sentiWordNetDictionary.getObjectivityOf(w);
-
-					objectivity /= sentence.words().size();
-
-					id = manager.getIdFor(feature, "");
-					stupidMap.put(id, id + ":" + objectivity);
-
-					break;
-			}
-		}
-
-		for (String s : stupidMap.values()) {
-			vectorFileBuilder.append(s);
-			vectorFileBuilder.append(' ');
-		}
-
+		String line = generateSentenceLineVectorFileString(null, sentence);
+		vectorFileBuilder.append(line);
 		vectorFileBuilder.append('\n');
 
 		try
@@ -1231,8 +1170,11 @@ public class Main
 		try
 		{
 			Runtime.getRuntime().exec("./liblinear_train " + vectorFileName + " " + modelFileName);
+			Thread.sleep(300); // Because sometimes liblinear doesn't print out to the model file in time
 		} catch (IOException e)
 		{
+			e.printStackTrace();
+		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
 	}
@@ -1504,6 +1446,70 @@ public class Main
 		{
 			e.printStackTrace();
 		}
+	}
+
+	private static void getRelatedWordsMap() {
+		System.out.println("Gathering related words...");
+		File file = new File(RELATED_WORDS_FILE);
+		Gson gson = new Gson();
+
+		if(file.exists()) {
+			StringBuilder builder = new StringBuilder();
+
+			try {
+				Scanner s = new Scanner(file);
+				while (s.hasNextLine()) builder.append(s.nextLine());
+				s.close();
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+
+			}
+
+			relatedWordsMap = gson.fromJson(builder.toString(), new TypeToken<TreeMap<String, String[]>>(){}.getType());
+		} else {
+			System.out.println("Generating new related words file! This is going to take a while...");
+
+			// We need to gather everything and create the file
+			ArrayList<NewsArticle> articles = new ArrayList<NewsArticle>();
+			articles.addAll(getAllDocsFrom(DEV_DOCS));
+			articles.addAll(getAllDocsFrom(TEST_DOCS));
+
+			relatedWordsMap = new TreeMap<String, String[]>();
+
+			for (NewsArticle a : articles) {
+				Document d = new Document(a.getFullText());
+
+				for (Sentence s : d.sentences()) {
+					for (String w : s.words()) {
+						if (!relatedWordsMap.containsKey(w.toLowerCase())) {
+							relatedWordsMap.put(w.toLowerCase(), getWordsRelatedTo(w.toLowerCase()));
+						}
+					}
+				}
+			}
+
+			System.out.print("Creating file...");
+			try {
+				PrintWriter printWriter = new PrintWriter(file);
+				printWriter.print(gson.toJson(relatedWordsMap));
+				printWriter.flush();
+				printWriter.close();
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+			}
+
+			System.out.println("done.");
+		}
+	}
+
+	private static String[] getWordsRelatedTo(String word) {
+		DataMuseWord[] dataMuseWords = DataMuse.getWordsRelatedTo(word.toLowerCase());
+		String[] relatedWords = new String[dataMuseWords.length];
+
+		for (int i = 0; i < relatedWords.length; i++)
+			relatedWords[i] = dataMuseWords[i].word;
+
+		return relatedWords;
 	}
 	
 	private static int[] getOpinionPosition(String sentence, String opinion)
