@@ -15,7 +15,7 @@ import java.util.TreeMap;
 public class LibLinearFeatureManager {
     public enum LibLinearFeature {
         // These are for sentence, targets and agents
-        CONTAINS_UNIGRAM, CONTAINS_BIGRAM, OBJECTIVITY_OF_SENTENCE, /*HAS_WORD_RELATED_TO_OTHER_WORD*/ // TODO: Add other features for sentence!
+        CONTAINS_UNIGRAM, CONTAINS_BIGRAM, OBJECTIVITY_OF_SENTENCE, HAS_WORD_RELATED_TO_OTHER_WORD, OBJECTIVITY_OF_RELATED_WORD, // TODO: Add other features for sentence!
 
         // These are for extracting the actual opinion words
         PREVIOUS_UNIGRAM, THIS_UNIGRAM, NEXT_UNIGRAM, PREVIOUS_PART_OF_SPEECH, THIS_PART_OF_SPEECH, NEXT_PART_OF_SPEECH, OBJECTIVITY_OF_WORD
