@@ -402,6 +402,12 @@ public class Main
 						}
 					}
 					break;
+				case HAS_NAMED_ENTITY:
+					for (String entity : sentence.nerTags()) {
+						id = manager.getIdFor(feature, entity);
+						libLinearFeatureVector.put(id, true);
+					}
+					break;
 			}
 		}
 
