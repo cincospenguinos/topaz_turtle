@@ -11,3 +11,6 @@ liblinear_*
 **/**/*.a
 **/**/*.o
 .toptur_data/
+*.log
+*.aux
+*.pdf
