@@ -61,6 +61,24 @@ public class Main
 	private static final String PHI_POS = "__PHI_POS__";
 	private static final String OMEGA_WORD = "__OMEGA__";
 	private static final String OMEGA_POS = "__OMEGA_POS__";
+	
+	private static final String W_WORD = "__W_WORD__";
+	private static final String W_PREV = "__W_PREV__";
+	private static final String W_NEXT = "__W_NEXT__";
+	private static final String W_POS = "__W_POS__";
+	private static final String W_POS_PREV = "__W_POS_PREV__";
+	private static final String W_POS_NEXT = "__W_POS_NEXT__";
+
+
+	private static final String NULL_WORD = "__NULL_WORD__";
+	private static final String NULL_PREV = "__NULL_PREV__";
+	private static final String NULL_NEXT = "__NULL_NEXT__";
+	private static final String NULL_POS = "__NULL_POS__";
+	private static final String NULL_POS_PREV = "__NULL_POS_PREV__";
+	private static final String NULL_POS_NEXT = "__NULL_POS_NEXT__";
+
+
+
 
 	//////////////////////
 	// MAIN //
@@ -75,7 +93,7 @@ public class Main
 		getSentiWordNet();
 
 		// String task = args[0].toLowerCase();
-		String task = "train";
+		String task = "test";
 		if (task.equals("train"))
 		{
 			ArrayList<NewsArticle> devArticles = getAllDocsFrom(DEV_DOCS);
@@ -83,29 +101,26 @@ public class Main
 			// Train to detect opinionated sentences
 			createSentencesVectorFile(devArticles, SENTENCES_TRAINING_FILE);
 			trainLibLinear(SENTENCES_TRAINING_FILE, SENTENCES_MODEL_FILE);
-			testLibLinear(SENTENCES_TRAINING_FILE, SENTENCES_MODEL_FILE, "/dev/null");
 
 			// Train to detect opinion agents
 			createTrainVectorFileAgent(devArticles, AGENT_TRAINING_FILE);
 			trainLibLinear(AGENT_TRAINING_FILE, AGENT_MODEL_FILE);
-			testLibLinear(AGENT_TRAINING_FILE, AGENT_MODEL_FILE, "/dev/null");
 
 			// Train to detect opinion agents
 			createTrainVectorFileTarget(devArticles, TARGET_TRAINING_FILE);
 			trainLibLinear(TARGET_TRAINING_FILE, TARGET_MODEL_FILE);
-			testLibLinear(TARGET_TRAINING_FILE, TARGET_MODEL_FILE, "/dev/null");
 
 			// Train to detect opinions in the sentence
 			createOpinionVectorFile(devArticles, OPINION_TRAINING_FILE);
 			trainLibLinear(OPINION_TRAINING_FILE, OPINION_MODEL_FILE);
-			testLibLinear(OPINION_TRAINING_FILE, OPINION_MODEL_FILE, "/dev/null");
 
             // Train to determine polarity of a given sentence
 			createPolarityVectorFile(devArticles, SENTIMENT_TRAINING_FILE);
 			trainLibLinear(SENTIMENT_TRAINING_FILE, SENTIMENT_MODEL_FILE);
-			testLibLinear(SENTIMENT_TRAINING_FILE, SENTIMENT_MODEL_FILE, "/dev/null");
 
             LibLinearFeatureManager.saveInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
+            
+            System.out.println("Finished Training");
 
 		} else if (task.equals("test"))
 		{
@@ -436,6 +451,7 @@ public class Main
 		}
 	}
 	
+	
 	private static void createTrainVectorFileAgent(ArrayList<NewsArticle> articles, String nameOfVectorFile)
 	{
 		StringBuilder vectorFileBuilder = new StringBuilder();
@@ -466,7 +482,140 @@ public class Main
 			e.printStackTrace();
 		}
 	}
+	
+	private static void createSingleOpinionAgentTarget(String sentence, ArrayList<String> words, int index, String nameOfVectorFile)
+	{
+		LibLinearFeatureManager manager = LibLinearFeatureManager
+				.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
+		
+		String word;
+		String pos;
 
+		if (words.get(index).equals(W_WORD))
+		{
+			word = W_WORD;
+			pos = W_POS;
+		}
+		else if (words.get(index).equals(NULL_WORD))
+		{
+			word = NULL_WORD;
+			pos = NULL_POS;
+		}
+		else
+		{
+			word = getText(sentence, index);
+			pos = getPos(sentence, index);
+		}
+		
+		StringBuilder vectorLineBuilder = new StringBuilder();
+		vectorLineBuilder.append(0);
+	    vectorLineBuilder.append(' ');
+		TreeMap<Integer, String> featureVector = new TreeMap<Integer, String>();
+
+		// Creating the feature vectors
+		for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature
+				.values())
+		{
+			int id;		
+			
+			switch (feature)
+			{
+			case PREVIOUS_UNIGRAM:
+				String previous;
+
+				if (word.equals(W_WORD))
+					previous = W_PREV;
+				else if (word.equals(NULL_WORD))
+					previous = NULL_PREV;
+				else if (index > 0)
+					previous = getText(sentence, index - 1);
+				else
+					previous = PHI_WORD;
+
+				id = manager.getIdFor(feature, previous);
+				featureVector.put(id, id + ":1");
+				break;
+			case THIS_UNIGRAM:
+				id = manager.getIdFor(feature, word);
+				featureVector.put(id, id + ":1");
+				break;
+			case NEXT_UNIGRAM:
+				String next;
+				
+				if (word.equals(W_WORD))
+					next = W_NEXT;
+				else if (word.equals(NULL_WORD))
+					next = NULL_NEXT;
+				else if (index < getSize(sentence) - 1)
+					next = getText(sentence, index + 1);
+				else
+					next = OMEGA_WORD;
+
+				id = manager.getIdFor(feature, next);
+				featureVector.put(id, id + ":1");
+				break;
+			case PREVIOUS_PART_OF_SPEECH:
+				String previousPos;
+
+				if (word.equals(W_WORD))
+					previousPos = W_POS_PREV;
+				else if (word.equals(NULL_WORD))
+					previousPos = NULL_POS_PREV;
+				else if (index > 0)
+					previousPos = getPos(sentence, index - 1);
+				else
+					previousPos = PHI_POS;
+
+				id = manager.getIdFor(feature, previousPos);
+				featureVector.put(id, id + ":1");
+				break;
+			case THIS_PART_OF_SPEECH:
+				id = manager.getIdFor(feature, pos);
+				featureVector.put(id, id + ":1");
+				break;
+			case NEXT_PART_OF_SPEECH:
+				String nextPos;
+
+				if (word.equals(W_WORD))
+					nextPos = W_POS_NEXT;
+				else if (word.equals(NULL_WORD))
+					nextPos = NULL_POS_NEXT;
+				else if (index < getSize(sentence) - 1)
+					nextPos = getPos(sentence, index + 1);
+				else
+					nextPos = OMEGA_POS;
+
+				id = manager.getIdFor(feature, nextPos);
+				featureVector.put(id, id + ":1");
+				break;
+			case OBJECTIVITY_OF_WORD:
+				id = manager.getIdFor(feature, "");
+				int objectivity = sentiWordNetDictionary.getObjectivityOf(word);
+				featureVector.put(id, id + ":" + objectivity);
+				break;
+			}	
+			
+		}
+
+		for (String s : featureVector.values())
+		{
+			vectorLineBuilder.append(s);
+			vectorLineBuilder.append(' ');
+		}
+
+		try
+		{
+			PrintWriter vectorFile = new PrintWriter(nameOfVectorFile);
+			vectorFile.print(vectorLineBuilder.toString());
+			vectorFile.flush();
+			vectorFile.close();
+		} catch (FileNotFoundException e)
+		{
+			e.printStackTrace();
+		}
+
+	}
+	
 	/**
 	 * Generates a vector file in LibLinear format for whatever articles are
 	 * provided.
@@ -491,28 +640,62 @@ public class Main
 		String sentence = opinion.sentence;
 		ArrayList<String> words = new ArrayList<String>();
 		
+		String agent;
+		
+		if (opinion.agent == null)
+		{
+			agent = "null";
+		}
+		else
+		{
+			agent = opinion.agent;
+		}
+		
 		for (int i = start; i < end; i++)
 		{
 			words.add(getText(sentence, i));
 		}
 		
-		words.add("w");
-		words.add("null");
-
-		for (int i = start; i < end; i++)
+		words.add(W_WORD);
+		words.add(NULL_WORD);
+		
+		for (int i = 0; i < words.size(); i++)
 		{
-			String word = getText(sentence, i);
-			String pos = getPos(sentence, i);
+			String word;
+			String pos;
 
-			
+			if (words.get(i).equals(W_WORD))
+			{
+				word = W_WORD;
+				pos = W_POS;
+			}
+			else if (words.get(i).equals(NULL_WORD))
+			{
+				word = NULL_WORD;
+				pos = NULL_POS;
+			}
+			else
+			{
+				word = words.get(i);
+				pos = getPos(sentence, start+i);
+			}
+						
 			StringBuilder vectorLineBuilder = new StringBuilder();
 			TreeMap<Integer, Object> featureVector = new TreeMap<Integer, Object>();
-
-
-			if (word.equalsIgnoreCase(opinion.agent))
+			
+			if (word.equals(W_WORD) && agent.equals("w"))
 			{
 				vectorLineBuilder.append(1);
-			} else
+			}
+			else if (word.equals(NULL_WORD) && agent.equals("null"))
+			{
+				vectorLineBuilder.append(1);
+			}
+			else if (word.equalsIgnoreCase(agent))
+			{
+				vectorLineBuilder.append(1);
+			} 
+			else
 			{
 				vectorLineBuilder.append(0);
 			}
@@ -528,8 +711,12 @@ public class Main
 				case PREVIOUS_UNIGRAM:
 					String previous;
 
-					if (i > 0)
-						previous = getText(sentence, i - 1);
+					if (word.equals(W_WORD))
+						previous = W_PREV;
+					else if (word.equals(NULL_WORD))
+						previous = NULL_PREV;
+					else if (i > 0)
+						previous = getText(sentence, start + i - 1);
 					else
 						previous = PHI_WORD;
 
@@ -543,8 +730,12 @@ public class Main
 				case NEXT_UNIGRAM:
 					String next;
 					
-					if (i < getSize(sentence) - 1)
-						next = getText(sentence, i + 1);
+					if (word.equals(W_WORD))
+						next = W_NEXT;
+					else if (word.equals(NULL_WORD))
+						next = NULL_NEXT;
+					else if (i < getSize(sentence) - 1)
+						next = getText(sentence, start + i + 1);
 					else
 						next = OMEGA_WORD;
 
@@ -554,8 +745,12 @@ public class Main
 				case PREVIOUS_PART_OF_SPEECH:
 					String previousPos;
 
-					if (i > 0)
-						previousPos = getPos(sentence, i - 1);
+					if (word.equals(W_WORD))
+						previousPos = W_POS_PREV;
+					else if (word.equals(NULL_WORD))
+						previousPos = NULL_POS_PREV;
+					else if (i > 0)
+						previousPos = getPos(sentence, start + i - 1);
 					else
 						previousPos = PHI_POS;
 
@@ -569,8 +764,12 @@ public class Main
 				case NEXT_PART_OF_SPEECH:
 					String nextPos;
 
-					if (i < getSize(sentence) - 1)
-						nextPos = getPos(sentence, i + 1);
+					if (word.equals(W_WORD))
+						nextPos = W_POS_NEXT;
+					else if (word.equals(NULL_WORD))
+						nextPos = NULL_POS_NEXT;
+					else if (i < getSize(sentence) - 1)
+						nextPos = getPos(sentence, start + i + 1);
 					else
 						nextPos = OMEGA_POS;
 
@@ -603,7 +802,6 @@ public class Main
 		}
 	
 		return vectorFileBuilder.toString();
-	
 		
 	}
 	
@@ -621,7 +819,7 @@ public class Main
 				
 				int[] position = getOpinionPosition(opinion_record.sentence, opinion_phrase);
 				
-				vectorFileBuilder.append(createVectorFileAgent(article, opinion_phrase, position[0], position[1]));
+				vectorFileBuilder.append(createVectorFileTarget(article, opinion_phrase, position[0], position[1]));
 
 			}
 		}
@@ -662,25 +860,59 @@ public class Main
 		String sentence = opinion.sentence;
 		ArrayList<String> words = new ArrayList<String>();
 		
+		String target;
+		
+		if (opinion.target == null)
+		{
+			target = "null";
+		}
+		else
+		{
+			target= opinion.target;
+		}
+		
+		
 		for (int i = start; i < end; i++)
 		{
 			words.add(getText(sentence, i));
 		}
 		
-		words.add("w");
-		words.add("null");
+		words.add(W_WORD);
+		words.add(NULL_WORD);
 
-		for (int i = start; i < end; i++)
+		for (int i = 0; i < words.size(); i++)
 		{
-			String word = getText(sentence, i);
-			String pos = getPos(sentence, i);
+			String word;
+			String pos;
 
+			if (words.get(i).equals(W_WORD))
+			{
+				word = W_WORD;
+				pos = W_POS;
+			}
+			else if (words.get(i).equals(NULL_WORD))
+			{
+				word = NULL_WORD;
+				pos = NULL_POS;
+			}
+			else
+			{
+				word = words.get(i);
+				pos = getPos(sentence, start+i);
+			}
 			
 			StringBuilder vectorLineBuilder = new StringBuilder();
 			TreeMap<Integer, Object> featureVector = new TreeMap<Integer, Object>();
-
-
-			if (word.equalsIgnoreCase(opinion.agent))
+			
+			if (word.equals(W_WORD) && target.equals("w"))
+			{
+				vectorLineBuilder.append(1);
+			}
+			else if (word.equals(NULL_WORD) && target.equals("null"))
+			{
+				vectorLineBuilder.append(1);
+			}
+			else if (word.equalsIgnoreCase(target))
 			{
 				vectorLineBuilder.append(1);
 			} else
@@ -699,8 +931,12 @@ public class Main
 				case PREVIOUS_UNIGRAM:
 					String previous;
 
-					if (i > 0)
-						previous = getText(sentence, i - 1);
+					if (word.equals(W_WORD))
+						previous = W_PREV;
+					else if (word.equals(NULL_WORD))
+						previous = NULL_PREV;
+					else if (i > 0)
+						previous = getText(sentence, start + i - 1);
 					else
 						previous = PHI_WORD;
 
@@ -714,8 +950,12 @@ public class Main
 				case NEXT_UNIGRAM:
 					String next;
 					
-					if (i < getSize(sentence) - 1)
-						next = getText(sentence, i + 1);
+					if (word.equals(W_WORD))
+						next = W_NEXT;
+					else if (word.equals(NULL_WORD))
+						next = NULL_NEXT;
+					else if (i < getSize(sentence) - 1)
+						next = getText(sentence, start + i + 1);
 					else
 						next = OMEGA_WORD;
 
@@ -725,8 +965,12 @@ public class Main
 				case PREVIOUS_PART_OF_SPEECH:
 					String previousPos;
 
-					if (i > 0)
-						previousPos = getPos(sentence, i - 1);
+					if (word.equals(W_WORD))
+						previousPos = W_POS_PREV;
+					else if (word.equals(NULL_WORD))
+						previousPos = NULL_POS_PREV;
+					else if (i > 0)
+						previousPos = getPos(sentence, start + i - 1);
 					else
 						previousPos = PHI_POS;
 
@@ -740,8 +984,12 @@ public class Main
 				case NEXT_PART_OF_SPEECH:
 					String nextPos;
 
-					if (i < getSize(sentence) - 1)
-						nextPos = getPos(sentence, i + 1);
+					if (word.equals(W_WORD))
+						nextPos = W_POS_NEXT;
+					else if (word.equals(NULL_WORD))
+						nextPos = NULL_POS_NEXT;
+					else if (i < getSize(sentence) - 1)
+						nextPos = getPos(sentence, start + i + 1);
 					else
 						nextPos = OMEGA_POS;
 
@@ -1223,6 +1471,8 @@ public class Main
 					o.sentence = s.toString();
 
 					// TODO: Add agent/target/polarity
+					o.agent = extractAgentFrom(o);
+					o.target = extractTargetFrom(o);
 
 					article.addExtractedOpinion(o);
 				}
@@ -1306,6 +1556,126 @@ public class Main
 
 		return allOpinions;
 	}
+	
+	private static String extractAgentFrom(Opinion o)
+	{
+		String sentence = o.sentence;
+		int[] pos = getOpinionPosition(o.sentence, o.opinion);
+		
+		LibLinearFeatureManager manager = LibLinearFeatureManager
+				.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
+		
+		ArrayList<String> words = new ArrayList<String>();
+		
+		for (int i = pos[0]; i < pos[1]; i++)
+		{
+			words.add(getText(sentence, i));
+		}
+		
+		words.add(W_WORD);
+		words.add(NULL_WORD);
+		
+		HashMap<String, Double> confidences = new HashMap<String, Double>();
+
+		for (int i = 0; i < words.size(); i++) 
+		{
+			String name = "some_file_" + i + ".vector";
+			createSingleOpinionAgentTarget(sentence, words, i, name);
+			
+			try
+			{
+				Runtime.getRuntime().exec("./liblinear_predict " + name + " " + AGENT_MODEL_FILE + " output.txt");
+				Thread.sleep(100); // To give LibLinear enough time to output to file
+
+				Scanner scanner = new Scanner(new File("output.txt"));
+
+				while (scanner.hasNextLine())
+				{
+					double label = Double.parseDouble(scanner.nextLine());
+
+					confidences.put(words.get(i), label);
+				}
+			} catch (IOException e)
+			{
+				e.printStackTrace();
+			} catch (InterruptedException e)
+			{
+				e.printStackTrace();
+			}
+		}
+		
+		double max = confidences.get(W_WORD);
+		String max_word = W_WORD;
+		for (String word: words)
+		{
+			if (confidences.get(word) > max)
+			{
+				max = confidences.get(word);
+				max_word = word;
+			}
+		}
+		return max_word;
+	}
+	
+	private static String extractTargetFrom(Opinion o)
+	{
+		String sentence = o.sentence;
+		int[] pos = getOpinionPosition(o.sentence, o.opinion);
+		
+		LibLinearFeatureManager manager = LibLinearFeatureManager
+				.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
+		
+		ArrayList<String> words = new ArrayList<String>();
+		
+		for (int i = pos[0]; i < pos[1]; i++)
+		{
+			words.add(getText(sentence, i));
+		}
+		
+		words.add(W_WORD);
+		words.add(NULL_WORD);
+		
+		HashMap<String, Double> confidences = new HashMap<String, Double>();
+
+		for (int i = 0; i < words.size(); i++) 
+		{
+			String name = "some_file_" + i + ".vector";
+			createSingleOpinionAgentTarget(sentence, words, i, name);
+			
+			try
+			{
+				Runtime.getRuntime().exec("./liblinear_predict " + name + " " + TARGET_MODEL_FILE + " output.txt");
+				Thread.sleep(100); // To give LibLinear enough time to output to file
+
+				Scanner scanner = new Scanner(new File("output.txt"));
+
+				while (scanner.hasNextLine())
+				{
+					double label = Double.parseDouble(scanner.nextLine());
+
+					confidences.put(words.get(i), label);
+				}
+			} catch (IOException e)
+			{
+				e.printStackTrace();
+			} catch (InterruptedException e)
+			{
+				e.printStackTrace();
+			}
+		}
+		
+		double max = confidences.get(W_WORD);
+		String max_word = W_WORD;
+		for (String word: words)
+		{
+			if (confidences.get(word) > max)
+			{
+				max = confidences.get(word);
+				max_word = word;
+			}
+		}
+		return max_word;
+	}
 
 	// Evaluate
 	private static void evaluateExtractedOpinions(ArrayList<NewsArticle> articles,
@@ -1365,6 +1735,8 @@ public class Main
 
 		System.out.println("\nTOTAL FSCORE: " + totalFScore / articles.size());
 	}
+	
+	
 
 	////////////////////
 	// HELPER METHODS //
