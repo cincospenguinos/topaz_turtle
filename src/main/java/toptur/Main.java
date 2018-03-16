@@ -1614,7 +1614,13 @@ public class Main
 				max_word = word;
 			}
 		}
-		return max_word;
+		
+		if (max_word.equals(W_WORD))
+			return "w";
+		else if (max_word.equals(NULL_WORD))
+			return "null";
+		else
+			return max_word;
 	}
 	
 	private static String extractTargetFrom(Opinion o)
@@ -1674,7 +1680,13 @@ public class Main
 				max_word = word;
 			}
 		}
-		return max_word;
+		
+		if (max_word.equals(W_WORD))
+			return "w";
+		else if (max_word.equals(NULL_WORD))
+			return "null";
+		else
+			return max_word;
 	}
 
 	// Evaluate
@@ -1736,6 +1748,100 @@ public class Main
 		System.out.println("\nTOTAL FSCORE: " + totalFScore / articles.size());
 	}
 	
+	// Evaluate
+	private static void evaluateAgentClassifier(ArrayList<NewsArticle> articles)
+	{
+		double totalFScore = 0.0;
+
+		System.out.println("Name\tPrecision\tRecall\tFScore");
+
+		for (NewsArticle article : articles)
+		{
+			HashMap<String, Opinion> goldStandardOpinions = (HashMap<String, Opinion>) article.getGoldStandardOpinions()
+					.clone();
+
+			double correctLabel = 0.0;
+			double nonNullLabels = 0.0;
+			double nonNullCorrect = 0.0;
+
+			for (Opinion goldStandard : goldStandardOpinions.values())
+			{
+				String classifier_result = extractAgentFrom(goldStandard);
+
+				if (!goldStandard.agent.equals("null"))
+				{
+					nonNullLabels += 1.0;
+					if (classifier_result.equals(goldStandard.agent))
+					{
+						correctLabel += 1.0;
+						nonNullCorrect += 1.0;
+					}
+				}
+				else if (classifier_result.equals(goldStandard.agent))
+				{
+					correctLabel += 1.0;
+				}
+			}
+
+			double precision = correctLabel / goldStandardOpinions.size();
+			double recall = nonNullCorrect / nonNullLabels;
+			double fscore = 2 * ((precision * recall) / precision + recall);
+
+			System.out.println(article.getDocumentName() + "\t" + precision + "\t" + recall + "\t" + fscore);
+			totalFScore += fscore;
+		}
+
+		System.out.println("\nTOTAL FSCORE: " + totalFScore / articles.size());
+	}
+	
+	
+	// Evaluate
+		private static void evaluateTargetClassifier(ArrayList<NewsArticle> articles)
+		{
+			double totalFScore = 0.0;
+
+			System.out.println("Name\tPrecision\tRecall\tFScore");
+
+			for (NewsArticle article : articles)
+			{
+				HashMap<String, Opinion> goldStandardOpinions = (HashMap<String, Opinion>) article.getGoldStandardOpinions()
+						.clone();
+
+				double correctLabel = 0.0;
+				double nonNullLabels = 0.0;
+				double nonNullCorrect = 0.0;
+
+
+				for (Opinion goldStandard : goldStandardOpinions.values())
+				{
+					String classifier_result = extractTargetFrom(goldStandard);
+
+					if (!goldStandard.target.equals("null"))
+					{
+						nonNullLabels += 1.0;
+						if (classifier_result.equals(goldStandard.target))
+						{
+							correctLabel += 1.0;
+							nonNullCorrect += 1.0;
+						}
+					}
+					else if (classifier_result.equals(goldStandard.target))
+					{
+						correctLabel += 1.0;
+					}
+				}
+
+				double precision = correctLabel / goldStandardOpinions.size();
+				double recall = nonNullCorrect / nonNullLabels;
+				double fscore = 2 * ((precision * recall) / precision + recall);
+
+				System.out.println(article.getDocumentName() + "\t" + precision + "\t" + recall + "\t" + fscore);
+				totalFScore += fscore;
+			}
+
+			System.out.println("\nTOTAL FSCORE: " + totalFScore / articles.size());
+		}
+		
 	
 
 	////////////////////
