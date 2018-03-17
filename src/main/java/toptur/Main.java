@@ -406,7 +406,6 @@ public class Main
 
 					break;
 
-				case HAS_WORD_RELATED_TO_OTHER_WORD:
 				case OBJECTIVITY_OF_RELATED_WORD:
 					for (String w : words) {
 						if (!relatedWordsMap.containsKey(w.toLowerCase())) {
@@ -1824,18 +1823,28 @@ public class Main
 					.clone();
 			for (Opinion goldStandard : goldStandardOpinions.values())
 			{
+				String agent;
+				if (goldStandard.agent == null)
+				{
+					agent = "null";
+				}
+				else 
+				{
+					agent = goldStandard.agent;
+				}
+				
 				String classifier_result = extractAgentFrom(goldStandard);
 
-				if (!goldStandard.agent.equals("null"))
+				if (!agent.equals("null"))
 				{
 					nonNullLabels += 1.0;
-					if (classifier_result.equals(goldStandard.agent))
+					if (classifier_result.equals(agent))
 					{
 						correctLabel += 1.0;
 						nonNullCorrect += 1.0;
 					}
 				}
-				else if (classifier_result.equals(goldStandard.agent))
+				else if (classifier_result.equals(agent))
 				{
 					correctLabel += 1.0;
 				}
@@ -1880,18 +1889,28 @@ public class Main
 
 			for (Opinion goldStandard : goldStandardOpinions.values())
 			{
+				String target;
+				if (goldStandard.agent == null)
+				{
+					target = "null";
+				}
+				else 
+				{
+					target = goldStandard.agent;
+				}
+				
 				String classifier_result = extractTargetFrom(goldStandard);
 
-				if (!goldStandard.target.equals("null"))
+				if (!target.equals("null"))
 				{
 					nonNullLabels += 1.0;
-					if (classifier_result.equals(goldStandard.target))
+					if (classifier_result.equals(target))
 					{
 						correctLabel += 1.0;
 						nonNullCorrect += 1.0;
 					}
 				}
-				else if (classifier_result.equals(goldStandard.target))
+				else if (classifier_result.equals(target))
 				{
 					correctLabel += 1.0;
 				}
