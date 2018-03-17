@@ -1,0 +1,73 @@
+\documentclass{article}
+%%
+%% Author: Andre LaFleur and Matthew Canova
+%% 3/14/18
+%%
+
+% Preamble
+%\documentclass[11pt]{article}
+
+% Packages
+\usepackage{a4wide}
+
+\title{Topaz Turtle---Baseline 2}
+\author{Andre LaFleur and Matthew Canova}
+
+% Document
+\begin{document}
+    \maketitle
+
+    \section{Baseline 2}
+
+    Topaz Turtle baseline 2 is an extensive expansion of the original baseline project. It works similarly to the previous version, using Support Vector Machine (SVM) classifiers to detect and extract various strings from the text. The application uses the features from the previous baseline, with the addition of % TODO: WHAT ELSE ARE WE ADDING!?
+
+    In addition to the improved features of the previous baseline, this version now includes full opinion expression extraction, target and agent extraction, and polarity detection. Further, evaluation on the test set can be done with respect to any collection of extraction features.
+
+    \section{External Resources}
+
+        We used the following resources on our project:
+
+        \begin{itemize}
+            \item Stanford NLP library for lower level NLP functions, like POS tagging and sentence distinguishing
+            \item SentiWordNet for getting general objectivity of a variety of words
+            \item MPQA corpus
+            \item LibLinear SVM classifier
+            \item DataMuse to get words that are related to other words
+        \end{itemize}
+
+    \section{Evaluation}
+
+        We evaluated our system on the CADE machine \verb|lab1-12| using test set with respect to each piece of the extracted material. Below are our results:
+
+    \begin{center} % TODO: Run these tests on CADE!
+        \begin{tabular}{ | l | c | r | c}
+            \hline
+            Extraction Type & Precision & Recall & F-Score/Accuracy \\ \hline
+            Sentence &  &  & \\ \hline
+            Opinion &  &  & \\ \hline
+            Agent &  &  & \\ \hline
+            Target &  &  & \\ \hline
+            Polarity &  &  & \\ \hline
+        \end{tabular}
+    \end{center}
+
+    \section{Team Member Contributions}
+
+        \subsection{Andre}
+
+            \begin{itemize}
+                \item Add opinion extraction using HMM \& BIO labeling
+                \item Add polarity classifier and extractor
+                \item Add evaluation selection
+                \item Add CLI support to test specific opinion frame elements
+                \item
+            \end{itemize}
+
+        \subsection{Matt}
+
+            \begin{itemize}
+                \item Add target classifier and extractor
+                \item Add agent classifier and extractor
+            \end{itemize}
+
+\end{document}

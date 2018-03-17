@@ -171,7 +171,7 @@ class TopTur < Thor
 		exec("java -jar #{JAR_NAME} test #{opts}")
 	end
 
-	desc 'extract [FILE1] ...', 'Extract opinions from the individual file or files and print them in a readable format'
+	desc 'extract [FILE1] ...', 'Extract opinions from an individual file or files and print them in a readable format'
 	def extract(*files)
 		setup
 
@@ -186,6 +186,44 @@ class TopTur < Thor
 		end
 
 		exec("java -jar #{JAR_NAME} extract #{files * " "}")
+	end
+
+	desc 'eval [FILE]', 'Evaluate each separate evaluation type on the test set to file'
+	def eval(file)
+		setup
+
+		unless @@settings[:separated]
+			STDERR.puts 'Dataset not converted! Please run `./toptur convert` before attempting to train'
+			exit(1)
+		end
+
+		unless @@settings[:trained]
+			STDERR.puts 'Classifiers not trained! Please run `./toptur train` before attempting this command'
+			exit(1)
+		end
+
+		options = %w(s o p t a)
+		options.each do |option|
+			puts "Evaluating option #{option}..."
+			File.open(file, 'a') { |f| f.puts "Evaluating option #{option}\n" }
+			`./toptur test -#{option} >> #{file}`
+		end
+
+		print 'Evaluating with respect to everything...'
+		`./toptur test >> #{file}`
+		puts 'done.'
+	end
+
+	desc 'explore', 'Explore the dataset'
+	def explore
+	    setup
+
+        unless @@settings[:separated]
+            STDERR.puts 'Dataset not converted! Please run `./toptur convert` before attempting to train'
+            exit(1)
+        end
+
+        exec("java -jar #{JAR_NAME} explore")
 	end
 
 	desc 'reset', "Reset old run's data and start over"
