@@ -1740,6 +1740,8 @@ public class Main
 	private static void evaluateExtractedOpinions(ArrayList<NewsArticle> articles,
 			Set<EvaluationOption> evaluationOptions)
 	{
+		double totalPrecision = 0.0;
+		double totalRecall = 0.0;
 		double totalFScore = 0.0;
 
 		System.out.println("Name\tPrecision\tRecall\tFScore");
@@ -1789,9 +1791,14 @@ public class Main
 			double fscore = 2 * ((precision * recall) / (Math.max(1, precision + recall)));
 
 			System.out.println(article.getDocumentName() + "\t" + precision + "\t" + recall + "\t" + fscore);
+
+			totalPrecision += precision;
+			totalRecall += recall;
 			totalFScore += fscore;
 		}
 
+		System.out.println("\nTOTAL PRECISION: " + totalPrecision / articles.size());
+		System.out.println("\nTOTAL RECALL: " + totalRecall / articles.size());
 		System.out.println("\nTOTAL FSCORE: " + totalFScore / articles.size());
 	}
 
@@ -1802,6 +1809,8 @@ public class Main
 	 */
 	private static void evaluateAgentClassifier(List<NewsArticle> articles)
 	{
+		double totalPrecision = 0.0;
+		double totalRecall = 0.0;
 		double totalFScore = 0.0;
 
 		System.out.println("Name\tPrecision\tRecall\tFScore");
@@ -1838,9 +1847,13 @@ public class Main
 
 			System.out.println(article.getDocumentName() + "\t" + precision + "\t" + recall + "\t" + fscore);
 
+			totalPrecision += precision;
+			totalRecall += recall;
 			totalFScore += fscore;
 		}
 
+		System.out.println("\nTOTAL PRECISION: " + totalPrecision / articles.size());
+		System.out.println("\nTOTAL RECALL: " + totalRecall / articles.size());
 		System.out.println("\nTOTAL FSCORE\t" + totalFScore / articles.size());
 	}
 
@@ -1852,6 +1865,8 @@ public class Main
 	 */
 	private static void evaluateTargetClassifier(List<NewsArticle> articles)
 	{
+		double totalPrecision = 0.0;
+		double totalRecall = 0.0;
 		double totalFScore = 0.0;
 
 		for (NewsArticle article : articles) {
@@ -1888,9 +1903,13 @@ public class Main
 
 			System.out.println(article.getDocumentName() + "\t" + precision + "\t" + recall + "\t" + fscore);
 
+			totalPrecision += precision;
+			totalRecall += recall;
 			totalFScore += fscore;
 		}
 
+		System.out.println("\nTOTAL PRECISION: " + totalPrecision / articles.size());
+		System.out.println("\nTOTAL RECALL: " + totalRecall / articles.size());
 		System.out.println("\nTOTAL FSCORE\t" + totalFScore / articles.size());
 	}
 		
