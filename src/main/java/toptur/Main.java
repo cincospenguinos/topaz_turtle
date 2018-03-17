@@ -95,7 +95,7 @@ public class Main
 
 		System.out.println("Gathering SentiWordNet dictionary...");
 		getSentiWordNet();
-		getRelatedWordsMap();
+		//getRelatedWordsMap();
 
 		String task = args[0].toLowerCase();
 
@@ -160,20 +160,22 @@ public class Main
 
 			// Extract the opinions
 			// Let's time how long it takes
-			System.out.println("Starting extraction...");
-			long startTime = System.currentTimeMillis();
-			for (NewsArticle a : testArticles)
-				extractOpinionFramesForArticle(a);
-			long endTime = System.currentTimeMillis();
-
-			System.out.println(((double) endTime - startTime) / 1000.0 + " seconds");
+			
 
 			if (evalOptions.size() == 1 && evalOptions.contains(EvaluationOption.TARGET))
 				evaluateTargetClassifier(testArticles);
 			else if(evalOptions.size() == 1 && evalOptions.contains(EvaluationOption.AGENT))
 				evaluateAgentClassifier(testArticles);
-			else
+			else {
+				System.out.println("Starting extraction...");
+				long startTime = System.currentTimeMillis();
+				for (NewsArticle a : testArticles)
+					extractOpinionFramesForArticle(a);
+				long endTime = System.currentTimeMillis();
+
+				System.out.println(((double) endTime - startTime) / 1000.0 + " seconds");
 				evaluateExtractedOpinions(testArticles, evalOptions);
+			}
 
 		} else if (task.equals("extract"))
 		{
@@ -1852,7 +1854,7 @@ public class Main
 
 			double precision = correctLabel / goldStandardOpinions.size();
 			double recall = nonNullCorrect / nonNullLabels;
-			double fscore = 2 * ((precision * recall) / precision + recall);
+			double fscore = 2 * ((precision * recall) / Math.max(1, precision + recall));
 
 			System.out.println(article.getDocumentName() + "\t" + precision + "\t" + recall + "\t" + fscore);
 
@@ -1918,7 +1920,7 @@ public class Main
 
 			double precision = correctLabel / goldStandardOpinions.size();
 			double recall = nonNullCorrect / nonNullLabels;
-			double fscore = 2 * ((precision * recall) / precision + recall);
+			double fscore = 2 * ((precision * recall) / Math.max(1, precision + recall));
 
 			System.out.println(article.getDocumentName() + "\t" + precision + "\t" + recall + "\t" + fscore);
 
