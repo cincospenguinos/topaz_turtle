@@ -1,0 +1,5 @@
+package toptur;
+
+public enum LearnerFeature {
+    CONTAINS_UNIGRAM, CONTAINS_BIGRAM, PREVIOUS_WORD, THIS_WORD, NEXT_WORD, PREVIOUS_POS, THIS_POS, NEXT_POS;
+}
