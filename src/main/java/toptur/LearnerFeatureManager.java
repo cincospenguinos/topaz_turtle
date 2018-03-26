@@ -25,6 +25,7 @@ public class LearnerFeatureManager {
         idCounter = 0;
         ids = new HashMap<LearnerFeature, Map<Object, Integer>>();
         potentialValues = new HashMap<LearnerFeature, Set<Object>>();
+        idsToFeatureTypes = new HashMap<Integer, LearnerFeature>();
 
         for (LearnerFeature f : LearnerFeature.values()) {
             ids.put(f, new HashMap<Object, Integer>());
@@ -68,5 +69,32 @@ public class LearnerFeatureManager {
      */
     public Set<Object> potentialValuesFor(LearnerFeature f) {
         return potentialValues.get(f);
+    }
+
+    public LearnerFeature getLearnerFeatureFor(int featureId) {
+        if (idsToFeatureTypes.containsKey(featureId))
+            return idsToFeatureTypes.get(featureId);
+
+        throw new RuntimeException("No valid feature for ID " + featureId); // This will probably be thrown sometime soon
+    }
+
+    /**
+     * Returns the value for the feature ID provided. So if the feature ID is one that points to "CONTAINS_BIGRAM",
+     * it should return a bigram.
+     *
+     * TODO: Should we include a datastructure to do this for us?
+     *
+     * @param featureId - ID
+     * @return object
+     */
+    public Object getValueFor(int featureId) {
+        Map<Object, Integer> map = ids.get(idsToFeatureTypes.get(featureId));
+
+        for (Map.Entry<Object, Integer> e : map.entrySet()) {
+            if (e.getValue() == featureId)
+                return e.getKey();
+        }
+
+        throw new RuntimeException("Could not find value for ID " + featureId);
     }
 }
