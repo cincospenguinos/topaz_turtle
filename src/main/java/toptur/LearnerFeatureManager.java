@@ -7,11 +7,21 @@ import java.util.TreeSet;
 
 public class LearnerFeatureManager {
 
-    private int idCounter;
+    private volatile int idCounter;
     private Map<LearnerFeature, Map<Object, Integer>> ids;
     private Map<LearnerFeature, Set<Object>> potentialValues;
+    private Map<Integer, LearnerFeature> idsToFeatureTypes;
 
-    public LearnerFeatureManager() {
+    private static LearnerFeatureManager instance;
+
+    public static LearnerFeatureManager getInstance() {
+        if (instance == null)
+            instance = new LearnerFeatureManager();
+
+        return instance;
+    }
+
+    private LearnerFeatureManager() {
         idCounter = 0;
         ids = new HashMap<LearnerFeature, Map<Object, Integer>>();
         potentialValues = new HashMap<LearnerFeature, Set<Object>>();
@@ -33,11 +43,21 @@ public class LearnerFeatureManager {
         Map<Object, Integer> map = ids.get(feature);
 
         if (!map.containsKey(value)) {
-            map.put(value, idCounter++);
+            int id = idCounter;
+            map.put(value, id); // TODO: Manage the concurrency issue here
             potentialValues.get(feature).add(value);
+            idsToFeatureTypes.put(id, feature);
+            idCounter += 1;
         }
 
         return map.get(value);
+    }
+
+    public Set<Object> potentialValuesFor(int featureId) {
+        if (idsToFeatureTypes.containsKey(featureId))
+           return potentialValuesFor(idsToFeatureTypes.get(featureId));
+
+        throw new RuntimeException("No valid feature for ID " + featureId); // This will probably be thrown sometime soon
     }
 
     /**
