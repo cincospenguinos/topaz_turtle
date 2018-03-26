@@ -54,6 +54,12 @@ public class LearnerFeatureManager {
         return map.get(value);
     }
 
+    /**
+     * Returns all of the potential values that match the LearnerFeature that featureId belongs to.
+     *
+     * @param featureId -
+     * @return Set
+     */
     public Set<Object> potentialValuesFor(int featureId) {
         if (idsToFeatureTypes.containsKey(featureId))
            return potentialValuesFor(idsToFeatureTypes.get(featureId));
@@ -96,5 +102,20 @@ public class LearnerFeatureManager {
         }
 
         throw new RuntimeException("Could not find value for ID " + featureId);
+    }
+
+    /**
+     * Returns the IDs for all of the learner features provided.
+     *
+     * @param featureTypes -
+     * @return Set of int
+     */
+    public Set<Integer> getIdsFor(Set<LearnerFeature> featureTypes) {
+        TreeSet<Integer> set = new TreeSet<Integer>();
+
+        for (LearnerFeature f : featureTypes)
+            set.addAll(ids.get(f).values());
+
+        return set;
     }
 }

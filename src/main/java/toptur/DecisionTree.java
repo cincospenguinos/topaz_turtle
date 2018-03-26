@@ -33,7 +33,7 @@ public class DecisionTree<E, L> {
                 List<LearnerExample<E, L>> subset = getSubsetWhereFeatureEqualsValue(examples, featureId, v);
 
                 if (subset.size() == 0) {
-                    children.put(v, new DecisionTree<E, L>(getMajorityLabel(subset)));
+                    children.put(v, new DecisionTree<E, L>(getMajorityLabel(examples)));
                 } else {
                     Set<Integer> subFeatures = new TreeSet<Integer>(features);
                     subFeatures.remove(featureId);
@@ -109,7 +109,7 @@ public class DecisionTree<E, L> {
         double overallMajorityError = majorityError(examples);
 
         for (int id : features) {
-            Set<Object> potentialValues = LearnerFeatureManager.getInstance().potentialValuesFor(id);
+            Set<Object> potentialValues = LearnerFeatureManager.getInstance().getLearnerFeatureFor(id).possibleValuesForFeature();
 
             double majErr = 0.0;
             for (Object v : potentialValues) {

@@ -67,8 +67,19 @@ public class Main
 			ArrayList<NewsArticle> devArticles = getAllDocsFrom(DEV_DOCS);
 
 			// TODO: Train opinionated sentence detection learner
+			Set<LearnerFeature> sentenceFeatures = new TreeSet<LearnerFeature>();
+			sentenceFeatures.add(LearnerFeature.CONTAINS_UNIGRAM);
+			sentenceFeatures.add(LearnerFeature.CONTAINS_BIGRAM);
+
 			List<LearnerExample<Sentence, Boolean>> opinionatedSentenceExamples = getOpinionatedSentenceExamples(devArticles);
-			DecisionTree<Sentence, Boolean> opinionatedSentenceTree = new DecisionTree<Sentence, Boolean>(opinionatedSentenceExamples, null, 3);
+
+			System.out.println("Training opinionated sentence tree...");
+			long start = System.currentTimeMillis();
+			DecisionTree<Sentence, Boolean> opinionatedSentenceTree = new DecisionTree<Sentence, Boolean>(opinionatedSentenceExamples,
+					LearnerFeatureManager.getInstance().getIdsFor(sentenceFeatures), 1);
+			long end = System.currentTimeMillis();
+
+			System.out.println("Took " + (((double) end - (double)start)) / 1000.0  + " seconds");
 
 			// TODO: Train all the other learners
 
