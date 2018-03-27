@@ -66,20 +66,30 @@ public class Main
 		{
 			ArrayList<NewsArticle> devArticles = getAllDocsFrom(DEV_DOCS);
 
-			// TODO: Train opinionated sentence detection learner
 			Set<LearnerFeature> sentenceFeatures = new TreeSet<LearnerFeature>();
 			sentenceFeatures.add(LearnerFeature.CONTAINS_UNIGRAM);
 			sentenceFeatures.add(LearnerFeature.CONTAINS_BIGRAM);
 
 			List<LearnerExample<Sentence, Boolean>> opinionatedSentenceExamples = getOpinionatedSentenceExamples(devArticles);
 
-			System.out.println("Training opinionated sentence tree...");
+			System.out.println("Training opinionated sentence classifier...");
 			long start = System.currentTimeMillis();
-			DecisionTree<Sentence, Boolean> opinionatedSentenceTree = new DecisionTree<Sentence, Boolean>(opinionatedSentenceExamples,
-					LearnerFeatureManager.getInstance().getIdsFor(sentenceFeatures), 1);
+			BaggedTrees<Sentence, Boolean> opinionatedSentenceClassifier = new BaggedTrees<Sentence, Boolean>(opinionatedSentenceExamples,
+					LearnerFeatureManager.getInstance().getIdsFor(sentenceFeatures), 100, 1);
 			long end = System.currentTimeMillis();
 
 			System.out.println("Took " + (((double) end - (double)start)) / 1000.0  + " seconds");
+
+			opinionatedSentenceExamples = getOpinionatedSentenceExamples(getAllDocsFrom(TEST_DOCS));
+
+			double correct = 0.0;
+			for (LearnerExample<Sentence, Boolean> e : opinionatedSentenceExamples)
+				if (opinionatedSentenceClassifier.guessFor(e).equals(e.getLabel()))
+					correct += 1.0;
+
+			double accuracy = correct / (double) opinionatedSentenceExamples.size();
+
+			System.out.println("Accuracy: " + accuracy);
 
 			// TODO: Train all the other learners
 

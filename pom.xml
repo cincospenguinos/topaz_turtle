@@ -38,6 +38,13 @@
             <classifier>models</classifier>
         </dependency>
 
+        <!-- Concurrency library Threadly -->
+        <dependency>
+            <groupId>org.threadly</groupId>
+            <artifactId>threadly</artifactId>
+            <version>5.14</version>
+        </dependency>
+
 
     </dependencies>
 

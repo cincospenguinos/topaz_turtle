@@ -29,7 +29,7 @@ public class DecisionTree<E, L> {
 
             // Add a new branch for that best feature
             children = new TreeMap<Object, DecisionTree<E, L>>();
-            for (Object v : LearnerFeatureManager.getInstance().potentialValuesFor(featureId)) {
+            for (Object v : LearnerFeatureManager.getInstance().getLearnerFeatureFor(featureId).possibleValuesForFeature()) {
                 List<LearnerExample<E, L>> subset = getSubsetWhereFeatureEqualsValue(examples, featureId, v);
 
                 if (subset.size() == 0) {
