@@ -1,5 +1,7 @@
 package toptur;
 
+import org.threadly.concurrent.UnfairExecutor;
+
 import java.util.*;
 
 /**
@@ -17,6 +19,14 @@ public class BaggedTrees<E, L> {
 
     private static volatile Random random = new Random(1992);
 
+    /**
+     * Serial version of generating trees.
+     *
+     * @param examples -
+     * @param featureIds -
+     * @param numberOfTrees -
+     * @param treeDepth -
+     */
     public BaggedTrees(List<LearnerExample<E, L>> examples, Set<Integer> featureIds, int numberOfTrees, int treeDepth) {
         trees = new ArrayList<DecisionTree<E, L>>();
 
@@ -32,6 +42,47 @@ public class BaggedTrees<E, L> {
                 featureSubset.add(featureClone[random.nextInt(featureClone.length)]);
 
             trees.add(new DecisionTree<E, L>(exampleSubset, featureSubset, treeDepth));
+        }
+    }
+
+    /**
+     * Threaded version of BaggedTrees.
+     * @param examples -
+     * @param featureIds -
+     * @param numberOfTrees -
+     * @param treeDepth -
+     * @param threads -
+     */
+    public BaggedTrees(final List<LearnerExample<E, L>> examples, final Set<Integer> featureIds, int numberOfTrees, final int treeDepth, int threads) {
+        trees = new ArrayList<DecisionTree<E, L>>();
+
+        UnfairExecutor executor = new UnfairExecutor(threads);
+
+        for (int i = 0; i < numberOfTrees; i++) {
+            Runnable runnable = new Runnable() {
+                public void run() {
+                    Set<Integer> featureSubset = new TreeSet<Integer>();
+                    List<LearnerExample<E, L>> exampleSubset = new ArrayList<LearnerExample<E, L>>();
+
+                    for (int j = 0; j < EXAMPLE_SUBSET_SIZE; j++)
+                        exampleSubset.add(examples.get(random.nextInt(examples.size())));
+
+                    Integer[] featureClone = featureIds.toArray(new Integer[0]);
+                    for (int j = 0; j < FEATURE_SUBSET_SIZE; j++)
+                        featureSubset.add(featureClone[random.nextInt(featureClone.length)]);
+
+                    trees.add(new DecisionTree<E, L>(exampleSubset, featureSubset, treeDepth));
+                }
+            };
+
+            executor.execute(runnable);
+        }
+
+        try {
+            executor.awaitTermination();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            System.exit(1);
         }
     }
 

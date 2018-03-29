@@ -75,7 +75,7 @@ public class Main
 			System.out.println("Training opinionated sentence classifier...");
 			long start = System.currentTimeMillis();
 			BaggedTrees<Sentence, Boolean> opinionatedSentenceClassifier = new BaggedTrees<Sentence, Boolean>(opinionatedSentenceExamples,
-					LearnerFeatureManager.getInstance().getIdsFor(sentenceFeatures), 100, 1);
+					LearnerFeatureManager.getInstance().getIdsFor(sentenceFeatures), 10, 1, 4);
 			long end = System.currentTimeMillis();
 
 			System.out.println("Took " + (((double) end - (double)start)) / 1000.0  + " seconds");
