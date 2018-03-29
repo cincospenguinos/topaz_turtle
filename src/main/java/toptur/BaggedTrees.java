@@ -58,7 +58,7 @@ public class BaggedTrees<E, L> {
 
         UnfairExecutor executor = new UnfairExecutor(threads);
 
-        for (int i = 0; i < numberOfTrees; i++) {
+        for (int i = 0; i < numberOfTrees - 1; i++) {
             Runnable runnable = new Runnable() {
                 public void run() {
                     Set<Integer> featureSubset = new TreeSet<Integer>();
@@ -77,6 +77,19 @@ public class BaggedTrees<E, L> {
 
             executor.execute(runnable);
         }
+
+        // So that the main thread is doing some work as well
+        Set<Integer> featureSubset = new TreeSet<Integer>();
+        List<LearnerExample<E, L>> exampleSubset = new ArrayList<LearnerExample<E, L>>();
+
+        for (int j = 0; j < EXAMPLE_SUBSET_SIZE; j++)
+            exampleSubset.add(examples.get(random.nextInt(examples.size())));
+
+        Integer[] featureClone = featureIds.toArray(new Integer[0]);
+        for (int j = 0; j < FEATURE_SUBSET_SIZE; j++)
+            featureSubset.add(featureClone[random.nextInt(featureClone.length)]);
+
+        trees.add(new DecisionTree<E, L>(exampleSubset, featureSubset, treeDepth));
 
         try {
             executor.awaitTermination();
