@@ -1,8 +1,9 @@
 package toptur;
 
-import org.threadly.concurrent.UnfairExecutor;
-
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * An implementation of bagged trees, following the same pattern of design as the other learner classes.
@@ -46,7 +47,8 @@ public class BaggedTrees<E, L> {
     }
 
     /**
-     * Threaded version of BaggedTrees.
+     * Multi-threaded version of BaggedTrees.
+     *
      * @param examples -
      * @param featureIds -
      * @param numberOfTrees -
@@ -56,47 +58,7 @@ public class BaggedTrees<E, L> {
     public BaggedTrees(final List<LearnerExample<E, L>> examples, final Set<Integer> featureIds, int numberOfTrees, final int treeDepth, int threads) {
         trees = new ArrayList<DecisionTree<E, L>>();
 
-        UnfairExecutor executor = new UnfairExecutor(threads);
-
-        for (int i = 0; i < numberOfTrees - 1; i++) {
-            Runnable runnable = new Runnable() {
-                public void run() {
-                    Set<Integer> featureSubset = new TreeSet<Integer>();
-                    List<LearnerExample<E, L>> exampleSubset = new ArrayList<LearnerExample<E, L>>();
-
-                    for (int j = 0; j < EXAMPLE_SUBSET_SIZE; j++)
-                        exampleSubset.add(examples.get(random.nextInt(examples.size())));
-
-                    Integer[] featureClone = featureIds.toArray(new Integer[0]);
-                    for (int j = 0; j < FEATURE_SUBSET_SIZE; j++)
-                        featureSubset.add(featureClone[random.nextInt(featureClone.length)]);
-
-                    trees.add(new DecisionTree<E, L>(exampleSubset, featureSubset, treeDepth));
-                }
-            };
-
-            executor.execute(runnable);
-        }
-
-        // So that the main thread is doing some work as well
-        Set<Integer> featureSubset = new TreeSet<Integer>();
-        List<LearnerExample<E, L>> exampleSubset = new ArrayList<LearnerExample<E, L>>();
-
-        for (int j = 0; j < EXAMPLE_SUBSET_SIZE; j++)
-            exampleSubset.add(examples.get(random.nextInt(examples.size())));
-
-        Integer[] featureClone = featureIds.toArray(new Integer[0]);
-        for (int j = 0; j < FEATURE_SUBSET_SIZE; j++)
-            featureSubset.add(featureClone[random.nextInt(featureClone.length)]);
-
-        trees.add(new DecisionTree<E, L>(exampleSubset, featureSubset, treeDepth));
-
-        try {
-            executor.awaitTermination();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-            System.exit(1);
-        }
+        // TODO: This, maybe--let's try multhreading DecisionTree first
     }
 
     /**

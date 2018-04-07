@@ -70,24 +70,33 @@ public class Main
 			sentenceFeatures.add(LearnerFeature.CONTAINS_UNIGRAM);
 			sentenceFeatures.add(LearnerFeature.CONTAINS_BIGRAM);
 
-			List<LearnerExample<Sentence, Boolean>> opinionatedSentenceExamples = getOpinionatedSentenceExamples(devArticles);
+			List<LearnerExample<Sentence, Boolean>> devExamples = getOpinionatedSentenceExamples(devArticles);
 
-			System.out.println("Training opinionated sentence classifier...");
+			System.out.println("Beginning multithreaded decision tree...");
 			long start = System.currentTimeMillis();
-			BaggedTrees<Sentence, Boolean> opinionatedSentenceClassifier = new BaggedTrees<Sentence, Boolean>(opinionatedSentenceExamples,
-					LearnerFeatureManager.getInstance().getIdsFor(sentenceFeatures), 10, 1, 4);
+			BaggedTrees<Sentence, Boolean> opinionatedSentenceClassifier = new BaggedTrees<Sentence, Boolean>(devExamples,
+					LearnerFeatureManager.getInstance().getIdsFor(sentenceFeatures), 2000, 2);
 			long end = System.currentTimeMillis();
 
-			System.out.println("Took " + (((double) end - (double)start)) / 1000.0  + " seconds");
-
-			opinionatedSentenceExamples = getOpinionatedSentenceExamples(getAllDocsFrom(TEST_DOCS));
+			System.out.println("Took " + (end - start) / 1000.0 + " seconds");
 
 			double correct = 0.0;
-			for (LearnerExample<Sentence, Boolean> e : opinionatedSentenceExamples)
+			for (LearnerExample<Sentence, Boolean> e : devExamples)
 				if (opinionatedSentenceClassifier.guessFor(e).equals(e.getLabel()))
 					correct += 1.0;
 
-			double accuracy = correct / (double) opinionatedSentenceExamples.size();
+			double accuracy = correct / (double) devExamples.size();
+
+			System.out.println("Accuracy: " + accuracy);
+
+			List<LearnerExample<Sentence, Boolean>> testExamples = getOpinionatedSentenceExamples(getAllDocsFrom(TEST_DOCS));
+
+			correct = 0.0;
+			for (LearnerExample<Sentence, Boolean> e : testExamples)
+				if (opinionatedSentenceClassifier.guessFor(e).equals(e.getLabel()))
+					correct += 1.0;
+
+			accuracy = correct / (double) testExamples.size();
 
 			System.out.println("Accuracy: " + accuracy);
 
@@ -250,6 +259,23 @@ public class Main
 	//////////////////////////////////////
 	// EXTRACT/EVALUATE WITH CLASSIFIER //
 	//////////////////////////////////////
+
+	/**
+	 * Returns the accuracy of the classifier provided using the examples provided. Make sure that the generic types
+	 * match; this method throws an UncheckedCastException if they don't match.
+	 *
+	 * @param examples -
+	 * @param classifier -
+	 * @return double
+	 */
+	private static double accuracyOfClassifier(List<LearnerExample> examples, BaggedTrees classifier) {
+		double correct = 0.0;
+		for (LearnerExample e : examples)
+			if (classifier.guessFor(e).equals(e.getLabel()))
+				correct += 1.0;
+
+		return correct / (double) examples.size();
+	}
 
 	////////////////////
 	// HELPER METHODS //

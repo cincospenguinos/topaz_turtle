@@ -3,6 +3,7 @@ package toptur;
 import com.sun.istack.internal.NotNull;
 
 import java.util.*;
+import java.util.concurrent.*;
 
 /**
  * Okay, here's how this is going to work:
@@ -102,25 +103,57 @@ public class DecisionTree<E, L> {
      * @param features -
      * @return int
      */
-    private int bestFeatureFor(List<LearnerExample<E, L>> examples, Set<Integer> features) {
+    private int bestFeatureFor(final List<LearnerExample<E, L>> examples, Set<Integer> features) {
         double bestError = -1.0;
         int bestFeature = -1;
 
         double overallMajorityError = majorityError(examples);
 
-        for (int id : features) {
-            Set<Object> potentialValues = LearnerFeatureManager.getInstance().getLearnerFeatureFor(id).possibleValuesForFeature();
+        // First we are going to setup a map with the different features and potential values and stuff
+        Map<Integer, Future<Double>> map = new TreeMap<Integer, Future<Double>>();
+        ExecutorService service = Executors.newCachedThreadPool();
 
-            double majErr = 0.0;
-            for (Object v : potentialValues) {
-                List<LearnerExample<E, L>> subset = getSubsetWhereFeatureEqualsValue(examples, id, v);
-                majErr += majorityError(subset) * ((double) subset.size() / (double) examples.size());
-            }
+        // Now we will discover features by throwing them in a thread pool
+        for (final int id : features) {
+            final Set<Object> potentialValues = LearnerFeatureManager.getInstance().getLearnerFeatureFor(id).possibleValuesForFeature();
 
-            if (bestError < overallMajorityError - majErr) {
-                bestError = overallMajorityError - majErr;
-                bestFeature = id;
+            Callable<Double> action = new Callable<Double>() {
+                public Double call() throws Exception {
+                    double majErr = 0.0;
+                    for (Object v : potentialValues) {
+                        List<LearnerExample<E, L>> subset = getSubsetWhereFeatureEqualsValue(examples, id, v);
+                        majErr += majorityError(subset) * ((double) subset.size() / (double) examples.size());
+                    }
+
+                    return majErr;
+                }
+            };
+
+            Future<Double> f = service.submit(action);
+            map.put(id, f);
+        }
+
+        // Finally we will Loop through them all and find the best one
+        for (Map.Entry<Integer, Future<Double>> e : map.entrySet()) {
+            double majErr = 0;
+            try {
+                majErr = e.getValue().get();
+
+                if (bestError < overallMajorityError - majErr) {
+                    bestError = overallMajorityError - majErr;
+                    bestFeature = e.getKey();
+                }
+            } catch (InterruptedException e1) {
+                e1.printStackTrace();
+            } catch (ExecutionException e1) {
+                e1.printStackTrace();
             }
+        }
+
+        service.shutdownNow();
+
+        if (bestFeature == -1) {
+            return (Integer) features.toArray()[0];
         }
 
         return bestFeature;

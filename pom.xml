@@ -37,15 +37,6 @@
             <version>3.8.0</version>
             <classifier>models</classifier>
         </dependency>
-
-        <!-- Concurrency library Threadly -->
-        <dependency>
-            <groupId>org.threadly</groupId>
-            <artifactId>threadly</artifactId>
-            <version>5.14</version>
-        </dependency>
-
-
     </dependencies>
 
     <build>
