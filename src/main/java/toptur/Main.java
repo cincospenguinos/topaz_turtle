@@ -2,7 +2,6 @@ package toptur;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import edu.stanford.nlp.pipeline.StanfordCoreNLP;
 import edu.stanford.nlp.simple.Document;
 import edu.stanford.nlp.simple.Sentence;
 
@@ -10,7 +9,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.lang.reflect.Type;
 import java.util.*;
 
 /**
@@ -63,6 +61,10 @@ public class Main
 	private static SentiWordNetDictionary sentiWordNetDictionary;
 	private static Map<String, String[]> relatedWordsMap;
 
+	// TODO: Set these to something that gives at least decent performance. I'm keeping them low to fix any potential bugs we have
+	private static int NUMBER_OF_TREES = 10;
+	private static int DEPTH_OF_TREES = 2;
+
 	//////////////////////
 	//       MAIN       //
 	//////////////////////
@@ -83,30 +85,30 @@ public class Main
 		{
 			ArrayList<NewsArticle> devArticles = getAllDocsFrom(DEV_DOCS);
 
+			// TODO: Multithread this chunk
+
 			// Train the sentence classifier
 			System.out.println("Training the sentence classifier!");
 			System.out.print("\tbagged trees...");
 			List<LearnerExample<Sentence, Boolean>> sentenceExamples = getOpinionatedSentenceExamples(devArticles);
 			BaggedTrees<Sentence, Boolean> opinionatedSentenceClassifier = new BaggedTrees<Sentence, Boolean>(sentenceExamples,
-					LearnerFeatureManager.getInstance().getIdsFor(LearnerFeature.getSentenceFeatures()), 2000, 2);
+					LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getSentenceFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
 			System.out.println("done.");
 			System.out.print("\tliblinear...");
 			createSentencesVectorFile(devArticles, ".sentences.vector", opinionatedSentenceClassifier);
 			trainLibLinear(".sentences.vector", SENTENCES_LIB_LINEAR_MODEL_FILE);
 			System.out.println("done.");
 
-			// TODO: Multithread this next chunk to get better performance
-
-//			System.out.println("Training the opinion classifier!");
-//			System.out.print("\tbagged trees...");
-//			List<LearnerExample<String, Integer>> opinionExamples = getOpinionWordExamples(devArticles);
-//			BaggedTrees<String, Integer> opinionatedWordClassifier = new BaggedTrees<String, Integer>(opinionExamples,
-//					LearnerFeatureManager.getInstance().getIdsFor(LearnerFeature.getOpinionPhraseFeatures()), 2000, 2);
-//			System.out.println("done.");
-//			System.out.print("\tliblinear...");
-//			createOpinionatedPhraseVectorFile(devArticles, ".opinions.vector", opinionatedWordClassifier);
-//			trainLibLinear(".opinions.vector", OPINIONS_LIB_LINEAR_MODEL_FILE);
-//			System.out.println("done.");
+			System.out.println("Training the opinion classifier!");
+			System.out.print("\tbagged trees...");
+			List<LearnerExample<String, Integer>> opinionExamples = getOpinionWordExamples(devArticles);
+			BaggedTrees<String, Integer> opinionatedWordClassifier = new BaggedTrees<String, Integer>(opinionExamples,
+					LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getOpinionPhraseFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
+			System.out.println("done.");
+			System.out.print("\tliblinear...");
+			createOpinionatedPhraseVectorFile(devArticles, ".opinions.vector", opinionatedWordClassifier);
+			trainLibLinear(".opinions.vector", OPINIONS_LIB_LINEAR_MODEL_FILE);
+			System.out.println("done.");
 
 			// TODO: Train the agent classifier
 			// TODO: Train the target classifier
@@ -117,7 +119,9 @@ public class Main
 			// TODO: Train all the other learners
 
 			System.out.println("Saving classifiers to disk...");
-//			opinionatedSentenceClassifier.saveToFile(BAGGED_TREES_SENTENCE_CLASSIFIER);
+			opinionatedSentenceClassifier.saveToFile(BAGGED_TREES_SENTENCE_CLASSIFIER);
+			LearnerFeatureManager.getInstance(null).saveInstance(LEARNER_FEATURE_MANAGER_FILE);
+			LibLinearFeatureManager.saveInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
             System.out.println("Finished Training");
 
@@ -172,11 +176,6 @@ public class Main
 		}
 	}
 
-	private static List<LearnerExample<String, Integer>> getOpinionWordExamples(ArrayList<NewsArticle> devArticles) {
-		// TODO: This
-		return null;
-	}
-
 	/////////////////////
 	// DATA PROCESSING //
 	/////////////////////
@@ -221,8 +220,8 @@ public class Main
 
 		LearnerExampleValueRequestListener<Sentence> listener = new LearnerExampleValueRequestListener<Sentence>() {
 			public Object valueOfFeatureForExample(Sentence example, int featureId) {
-				LearnerFeature f = LearnerFeatureManager.getInstance().getLearnerFeatureFor(featureId);
-				Object val = LearnerFeatureManager.getInstance().getValueFor(featureId);
+				LearnerFeature f = LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getLearnerFeatureFor(featureId);
+				Object val = LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getValueFor(featureId);
 
 				// TODO: Add all the other features
 				switch(f) {
@@ -267,6 +266,35 @@ public class Main
 		return opinionatedSentenceExamples;
 	}
 
+
+	/**
+	 * Get a collection of LearnerExamples to do BIO labeling on all of the words of an opinionated sentence.
+	 *
+	 * @param articles -
+	 * @return List
+	 */
+	private static List<LearnerExample<String, Integer>> getOpinionWordExamples(ArrayList<NewsArticle> articles) {
+		// TODO: This
+		List<LearnerExample<String, Integer>> opinionatedPhraseExamples = new ArrayList<LearnerExample<String, Integer>>();
+
+		LearnerExampleValueRequestListener<String> listener = new LearnerExampleValueRequestListener<String>() {
+			public Object valueOfFeatureForExample(String example, int featureId) {
+				LearnerFeature f = LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getLearnerFeatureFor(featureId);
+				Object val = LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getValueFor(featureId);
+
+				switch (f) {
+					
+				}
+				return null;
+			}
+		};
+
+		for (NewsArticle a : articles) {
+
+		}
+
+		return opinionatedPhraseExamples;
+	}
 	////////////////////////
 	// FEATURE PROCESSING //
 	////////////////////////
@@ -297,7 +325,7 @@ public class Main
 				else
 					vectorLineBuilder.append(0);
 
-				String line = generateSentenceLineVectorFileString(null, s, classifier);
+				String line = generateSentenceLineVectorFileString(article, s, classifier);
 				vectorLineBuilder.append(' ');
 				vectorLineBuilder.append(line);
 
@@ -613,9 +641,9 @@ public class Main
 						boolean g = guesses.get(i);
 
 						if (g)
-							libLinearFeatureVector.put(id, id + ":1");
+							libLinearFeatureVector.put(id, 1);
 						else
-							libLinearFeatureVector.put(id, id + ":0");
+							libLinearFeatureVector.put(id, 1);
 					}
 					break;
 			}
@@ -789,7 +817,7 @@ public class Main
 	 */
 	private static void getLearnerFeatureManager() {
 		ArrayList<NewsArticle> devArticles = getAllDocsFrom(DEV_DOCS);
-		LearnerFeatureManager manager = LearnerFeatureManager.getInstance();
+		LearnerFeatureManager manager = LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE);
 
 		for (NewsArticle a : devArticles) {
 			Document document = new Document(a.getFullText());

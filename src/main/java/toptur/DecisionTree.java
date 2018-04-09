@@ -30,7 +30,7 @@ public class DecisionTree<E, L> {
 
             // Add a new branch for that best feature
             children = new TreeMap<Object, DecisionTree<E, L>>();
-            for (Object v : LearnerFeatureManager.getInstance().getLearnerFeatureFor(featureId).possibleValuesForFeature()) {
+            for (Object v : LearnerFeatureManager.getInstance(Main.LEARNER_FEATURE_MANAGER_FILE).getLearnerFeatureFor(featureId).possibleValuesForFeature()) {
                 List<LearnerExample<E, L>> subset = getSubsetWhereFeatureEqualsValue(examples, featureId, v);
 
                 if (subset.size() == 0) {
@@ -111,11 +111,11 @@ public class DecisionTree<E, L> {
 
         // First we are going to setup a map with the different features and potential values and stuff
         Map<Integer, Future<Double>> map = new TreeMap<Integer, Future<Double>>();
-        ExecutorService service = Executors.newCachedThreadPool();
+        ExecutorService service = Executors.newFixedThreadPool(4);
 
         // Now we will discover features by throwing them in a thread pool
         for (final int id : features) {
-            final Set<Object> potentialValues = LearnerFeatureManager.getInstance().getLearnerFeatureFor(id).possibleValuesForFeature();
+            final Set<Object> potentialValues = LearnerFeatureManager.getInstance(Main.LEARNER_FEATURE_MANAGER_FILE).getLearnerFeatureFor(id).possibleValuesForFeature();
 
             Callable<Double> action = new Callable<Double>() {
                 public Double call() throws Exception {

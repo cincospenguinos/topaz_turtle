@@ -11,7 +11,7 @@ import java.util.TreeSet;
  * TODO: Add some more features here!
  */
 public enum LearnerFeature {
-    CONTAINS_UNIGRAM, CONTAINS_BIGRAM, PREVIOUS_WORD, THIS_WORD, NEXT_WORD, PREVIOUS_POS, THIS_POS, NEXT_POS;
+    CONTAINS_UNIGRAM, CONTAINS_BIGRAM, THIS_WORD, THIS_POS, SUBJECTIVITY_OF_WORD;
 
     private static final boolean[] BOOL_VALS = new boolean[] { true, false };
     private static final int[] BIO_VALS = new int[] { 0, 1, 2 };
@@ -38,12 +38,9 @@ public enum LearnerFeature {
 
     public static Set<LearnerFeature> getOpinionPhraseFeatures() {
         Set<LearnerFeature> set = new TreeSet<LearnerFeature>();
-        set.add(LearnerFeature.PREVIOUS_WORD);
         set.add(LearnerFeature.THIS_WORD);
-        set.add(LearnerFeature.NEXT_WORD);
-        set.add(LearnerFeature.PREVIOUS_POS);
         set.add(LearnerFeature.THIS_POS);
-        set.add(LearnerFeature.NEXT_POS);
+        set.add(LearnerFeature.SUBJECTIVITY_OF_WORD);
         return set;
     }
 }

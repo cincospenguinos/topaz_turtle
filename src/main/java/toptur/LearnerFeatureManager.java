@@ -1,5 +1,10 @@
 package toptur;
 
+import com.google.gson.Gson;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -14,9 +19,16 @@ public class LearnerFeatureManager {
 
     private static LearnerFeatureManager instance;
 
-    public static LearnerFeatureManager getInstance() {
-        if (instance == null)
-            instance = new LearnerFeatureManager();
+    public static LearnerFeatureManager getInstance(String fileName) {
+        if (instance == null) {
+            File f = new File(fileName);
+
+            if (f.exists()) {
+                instance = pullFromFile(f);
+            } else {
+                instance = new LearnerFeatureManager();
+            }
+        }
 
         return instance;
     }
@@ -117,5 +129,31 @@ public class LearnerFeatureManager {
             set.addAll(ids.get(f).values());
 
         return set;
+    }
+
+    /**
+     * Save the instance to the disk.
+     *
+     * TODO: This may need to be redone or something
+     *
+     * @param learnerFeatureManagerFile -
+     */
+    public void saveInstance(String learnerFeatureManagerFile) {
+        File f = new File(learnerFeatureManagerFile);
+        Gson gson = new Gson();
+
+        try {
+            PrintWriter writer = new PrintWriter(f);
+            writer.print(gson.toJson(this));
+            writer.flush();
+            writer.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static LearnerFeatureManager pullFromFile(File f) {
+        // TODO: THIS
+        return null;
     }
 }

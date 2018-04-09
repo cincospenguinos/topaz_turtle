@@ -4,7 +4,7 @@ My project for information extraction. This README will explain more about it. E
 
 ## What do we have to do next?
 
-- [ ] Train the sentence classifier
+- [x] Train the sentence classifier
 - [ ] Train the opinion classifier
 - [ ] Train the agent classifier
 - [ ] Train the target classifier
