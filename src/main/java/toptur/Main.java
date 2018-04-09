@@ -60,6 +60,8 @@ public class Main
 
 	private static SentiWordNetDictionary sentiWordNetDictionary;
 	private static Map<String, String[]> relatedWordsMap;
+	private static Set<String> allWords;
+	private static Set<String> allPos;
 
 	// TODO: Set these to something that gives at least decent performance. I'm keeping them low to fix any potential bugs we have
 	private static int NUMBER_OF_TREES = 10;
@@ -88,16 +90,16 @@ public class Main
 			// TODO: Multithread this chunk
 
 			// Train the sentence classifier
-			System.out.println("Training the sentence classifier!");
-			System.out.print("\tbagged trees...");
-			List<LearnerExample<Sentence, Boolean>> sentenceExamples = getOpinionatedSentenceExamples(devArticles);
-			BaggedTrees<Sentence, Boolean> opinionatedSentenceClassifier = new BaggedTrees<Sentence, Boolean>(sentenceExamples,
-					LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getSentenceFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
-			System.out.println("done.");
-			System.out.print("\tliblinear...");
-			createSentencesVectorFile(devArticles, ".sentences.vector", opinionatedSentenceClassifier);
-			trainLibLinear(".sentences.vector", SENTENCES_LIB_LINEAR_MODEL_FILE);
-			System.out.println("done.");
+//			System.out.println("Training the sentence classifier!");
+//			System.out.print("\tbagged trees...");
+//			List<LearnerExample<Sentence, Boolean>> sentenceExamples = getOpinionatedSentenceExamples(devArticles);
+//			BaggedTrees<Sentence, Boolean> opinionatedSentenceClassifier = new BaggedTrees<Sentence, Boolean>(sentenceExamples,
+//					LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getSentenceFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
+//			System.out.println("done.");
+//			System.out.print("\tliblinear...");
+//			createSentencesVectorFile(devArticles, ".sentences.vector", opinionatedSentenceClassifier);
+//			trainLibLinear(".sentences.vector", SENTENCES_LIB_LINEAR_MODEL_FILE);
+//			System.out.println("done.");
 
 			System.out.println("Training the opinion classifier!");
 			System.out.print("\tbagged trees...");
@@ -119,7 +121,8 @@ public class Main
 			// TODO: Train all the other learners
 
 			System.out.println("Saving classifiers to disk...");
-			opinionatedSentenceClassifier.saveToFile(BAGGED_TREES_SENTENCE_CLASSIFIER);
+//			opinionatedSentenceClassifier.saveToFile(BAGGED_TREES_SENTENCE_CLASSIFIER);
+			opinionatedWordClassifier.saveToFile(BAGGED_TREES_OPINION_CLASSIFIER);
 			LearnerFeatureManager.getInstance(null).saveInstance(LEARNER_FEATURE_MANAGER_FILE);
 			LibLinearFeatureManager.saveInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
@@ -205,6 +208,18 @@ public class Main
 			docs.add(NewsArticle.fromJson(f));
 		}
 
+		if (allWords == null)
+			allWords = new TreeSet<String>();
+		if (allPos == null)
+			allPos = new TreeSet<String>();
+
+		for (NewsArticle a : docs) {
+			for (Sentence s : new Document(a.getFullText()).sentences()) {
+				allWords.addAll(s.words());
+				allPos.addAll(s.posTags());
+			}
+		}
+
 		return docs;
 	}
 
@@ -283,14 +298,73 @@ public class Main
 				Object val = LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getValueFor(featureId);
 
 				switch (f) {
-					
+					case THIS_WORD:
+						return example;
+					case THIS_POS:
+						return new Document(example).sentence(0).posTag(0);
+					case OBJECTIVITY_OF_WORD:
+						return sentiWordNetDictionary.getObjectivityOf(example);
+
 				}
-				return null;
+
+				throw new RuntimeException("Could not get a word");
 			}
 		};
 
-		for (NewsArticle a : articles) {
+		// Convert dataset to something we can handle
+		Map<String, Set<String>> opinionatedSentencesToOpinionPhrases = new TreeMap<String, Set<String>>();
 
+		for (NewsArticle a : articles) {
+			for (Opinion o : a.getGoldStandardOpinions().values()) {
+				if (!opinionatedSentencesToOpinionPhrases.containsKey(o.sentence))
+					opinionatedSentencesToOpinionPhrases.put(o.sentence, new TreeSet<String>());
+
+				opinionatedSentencesToOpinionPhrases.get(o.sentence).add(o.opinion);
+			}
+		}
+
+		for (Map.Entry<String, Set<String>> e : opinionatedSentencesToOpinionPhrases.entrySet()) {
+			Sentence s = new Document(e.getKey()).sentence(0);
+
+			// Get the right labels for each word
+			for (String p : e.getValue()) {
+				int firstIndex = -1;
+				int lastIndex = -1;
+
+				String[] phrase = p.split(" ");
+
+				for (int i = 0; i < s.words().size(); i++) {
+					String w = s.word(i);
+
+					if (w.equals(phrase[0])) {
+						boolean foundIt = true;
+
+						for (int j = 1; j < phrase.length; j++) {
+							if (!s.word(i + j).equals(phrase[j])) {
+								foundIt = false;
+								break;
+							}
+						}
+
+						if (foundIt) {
+							firstIndex = i;
+							lastIndex = i + phrase.length - 1;
+							break;
+						}
+					}
+				}
+
+				for (int i = 0; i < s.words().size(); i++) {
+					int label = 0;
+
+					if (i == firstIndex)
+						label = 1;
+					else if (i > firstIndex && i < lastIndex)
+						label = 2;
+
+					opinionatedPhraseExamples.add(new LearnerExample<String, Integer>(s.word(i), label, listener));
+				}
+			}
 		}
 
 		return opinionatedPhraseExamples;
@@ -802,6 +876,12 @@ public class Main
 		}
 	}
 
+	/**
+	 * Returns an array of words related to the word provided, using the DataMuse API.
+	 *
+	 * @param word -
+	 * @return array of String
+	 */
 	private static String[] getWordsRelatedTo(String word) {
 		DataMuseWord[] dataMuseWords = DataMuse.getWordsRelatedTo(word.toLowerCase());
 		String[] relatedWords = new String[dataMuseWords.length];
@@ -825,6 +905,7 @@ public class Main
 			for (Sentence s : document.sentences()) {
 				for (LearnerFeature f : LearnerFeature.values()) {
 					switch(f) {
+						case THIS_WORD:
 						case CONTAINS_UNIGRAM:
 							for (String w : s.words())
 								manager.getIdFor(f, w);
@@ -843,11 +924,29 @@ public class Main
 								manager.getIdFor(f, bigram);
 							}
 							break;
+						case THIS_POS:
+							for (String pos : s.posTags())
+								manager.getIdFor(f, pos);
+							break;
+						case OBJECTIVITY_OF_WORD:
+							for (int i = 0; i <= 100; i++)
+								manager.getIdFor(f, i);
+							break;
+						default:
+							throw new RuntimeException("Did not include way to get IDs for " + f);
 					}
 				}
 			}
 		}
 
-		// TODO: Assign IDs for all of the other classifier types
+		// TODO: Anything else that needs to be here
+	}
+
+	public static Set<String> getAllWords() {
+		return allWords;
+	}
+
+	public static Set<String> getAllPos() {
+		return allPos;
 	}
 }
