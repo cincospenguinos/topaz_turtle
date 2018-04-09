@@ -1,9 +1,15 @@
 package toptur;
 
+import com.google.gson.Gson;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * An implementation of bagged trees, following the same pattern of design as the other learner classes.
@@ -28,7 +34,7 @@ public class BaggedTrees<E, L> {
      * @param numberOfTrees -
      * @param treeDepth -
      */
-    public BaggedTrees(List<LearnerExample<E, L>> examples, Set<Integer> featureIds, int numberOfTrees, int treeDepth) {
+    public BaggedTrees(final List<LearnerExample<E, L>> examples, final Set<Integer> featureIds, int numberOfTrees, final int treeDepth) {
         trees = new ArrayList<DecisionTree<E, L>>();
 
         for (int i = 0; i < numberOfTrees; i++) {
@@ -44,21 +50,6 @@ public class BaggedTrees<E, L> {
 
             trees.add(new DecisionTree<E, L>(exampleSubset, featureSubset, treeDepth));
         }
-    }
-
-    /**
-     * Multi-threaded version of BaggedTrees.
-     *
-     * @param examples -
-     * @param featureIds -
-     * @param numberOfTrees -
-     * @param treeDepth -
-     * @param threads -
-     */
-    public BaggedTrees(final List<LearnerExample<E, L>> examples, final Set<Integer> featureIds, int numberOfTrees, final int treeDepth, int threads) {
-        trees = new ArrayList<DecisionTree<E, L>>();
-
-        // TODO: This, maybe--let's try multhreading DecisionTree first
     }
 
     /**
@@ -103,6 +94,24 @@ public class BaggedTrees<E, L> {
             labels.add(d.guessFor(example));
 
         return labels;
+    }
+
+    /**
+     * Saves the classifier to the file provided.
+     *
+     * @param fileName - name of file
+     */
+    public void saveToFile(String fileName) {
+        String json = new Gson().toJson(this);
+
+        try {
+            PrintWriter writer = new PrintWriter(new File(fileName));
+            writer.print(json);
+            writer.flush();
+            writer.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
     }
 
     /**

@@ -135,7 +135,7 @@ public class DecisionTree<E, L> {
 
         // Finally we will Loop through them all and find the best one
         for (Map.Entry<Integer, Future<Double>> e : map.entrySet()) {
-            double majErr = 0;
+            double majErr;
             try {
                 majErr = e.getValue().get();
 

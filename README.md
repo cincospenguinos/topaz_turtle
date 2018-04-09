@@ -4,21 +4,14 @@ My project for information extraction. This README will explain more about it. E
 
 ## What do we have to do next?
 
-- [x] Extract the opinion in the sentence
-- [ ] Allow evaluation of a specific metric for test command
-- [ ] Extract the agent in the sentence
-- [ ] Extract the target in the sentence
-- [ ] Figure out the polarity of the opinion
-- [ ] Add another classifier--perhaps a set of decision stumps?
-- [ ] Add a bunch of features
-
-### Things Andre needs to do
-
-- [x] Change objectivity value representation for LibLinear
-- [x] Polarity of sentence
-- [x] Debug it on the CADE machines
-- [ ] Add a bunch of features
-- [ ] Extract everything and print it out
+- [ ] Train the sentence classifier
+- [ ] Train the opinion classifier
+- [ ] Train the agent classifier
+- [ ] Train the target classifier
+- [ ] Train the polarity classifier
+- [ ] Multithread the training process
+- [ ] Setup the testing process
+- [ ] Put the evaluation method back
 
 ## Progress
 
