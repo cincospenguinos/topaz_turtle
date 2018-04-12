@@ -54,4 +54,8 @@ public enum LearnerFeature {
         set.add(LearnerFeature.OBJECTIVITY_OF_WORD);
         return set;
     }
+
+    public static Set<LearnerFeature> getPolarityPhraseFeatures() {
+        return getSentenceFeatures();
+    }
 }

@@ -64,8 +64,8 @@ public class Main
 	private static Set<String> allPos;
 
 	// TODO: Set these to something that gives at least decent performance. I'm keeping them low to fix any potential bugs we have
-	private static int NUMBER_OF_TREES = 10;
-	private static int DEPTH_OF_TREES = 2;
+	private static int NUMBER_OF_TREES = 2;
+	private static int DEPTH_OF_TREES = 1;
 
 	//////////////////////
 	//       MAIN       //
@@ -101,32 +101,39 @@ public class Main
 //			trainLibLinear(".sentences.vector", SENTENCES_LIB_LINEAR_MODEL_FILE);
 //			System.out.println("done.");
 
-			System.out.println("Training the opinion classifier!");
-			System.out.print("\tbagged trees...");
-			List<LearnerExample<String, Integer>> opinionExamples = getOpinionWordExamples(devArticles);
-			BaggedTrees<String, Integer> opinionatedWordClassifier = new BaggedTrees<String, Integer>(opinionExamples,
-					LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getOpinionPhraseFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
-			System.out.println("done.");
-			System.out.print("\tliblinear...");
-			createOpinionatedPhraseVectorFile(devArticles, ".opinions.vector", opinionatedWordClassifier);
-			trainLibLinear(".opinions.vector", OPINIONS_LIB_LINEAR_MODEL_FILE);
-			System.out.println("done.");
+//			System.out.println("Training the opinion classifier!");
+//			System.out.print("\tbagged trees...");
+//			List<LearnerExample<String, Integer>> opinionExamples = getOpinionWordExamples(devArticles);
+//			BaggedTrees<String, Integer> opinionatedWordClassifier = new BaggedTrees<String, Integer>(opinionExamples,
+//					LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getOpinionPhraseFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
+//			System.out.println("done.");
+//			System.out.print("\tliblinear...");
+//			createOpinionatedPhraseVectorFile(devArticles, ".opinions.vector", opinionatedWordClassifier);
+//			trainLibLinear(".opinions.vector", OPINIONS_LIB_LINEAR_MODEL_FILE);
+//			System.out.println("done.");
 
 			// TODO: Train the agent classifier
 			// TODO: Train the target classifier
-			// TODO: Train the polarity classifier
+
+			System.out.println("Training the polarity classifier!");
+			System.out.print("\tbagged trees...");
+			List<LearnerExample<String, Integer>> polarityExamples = getPolarityExamples(devArticles);
+			BaggedTrees<String, Integer> polarityClassifier = new BaggedTrees<String, Integer>(polarityExamples,
+					LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getPolarityPhraseFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
+			createPolarityVectorFile(devArticles, ".polarities.vector", polarityClassifier);
+			trainLibLinear(".polarities.vector", POLARITY_LIB_LINEAR_MODEL_FILE);
 
 			// TODO: Test accuracy of all other learners
 			// TODO: Train liblinear to handle input from the bagged tree classifier
-			// TODO: Train all the other learners
 
 			System.out.println("Saving classifiers to disk...");
 //			opinionatedSentenceClassifier.saveToFile(BAGGED_TREES_SENTENCE_CLASSIFIER);
-			opinionatedWordClassifier.saveToFile(BAGGED_TREES_OPINION_CLASSIFIER);
+//			opinionatedWordClassifier.saveToFile(BAGGED_TREES_OPINION_CLASSIFIER);
+			polarityClassifier.saveToFile(BAGGED_TREES_POLARITY_CLASSIFIER);
 			LearnerFeatureManager.getInstance(null).saveInstance(LEARNER_FEATURE_MANAGER_FILE);
 			LibLinearFeatureManager.saveInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
-            System.out.println("Finished Training");
+            System.out.println("___FINISHED TRAINING___");
 
 		} else if (task.equals("test"))
 		{
@@ -289,7 +296,6 @@ public class Main
 	 * @return List
 	 */
 	private static List<LearnerExample<String, Integer>> getOpinionWordExamples(ArrayList<NewsArticle> articles) {
-		// TODO: This
 		List<LearnerExample<String, Integer>> opinionatedPhraseExamples = new ArrayList<LearnerExample<String, Integer>>();
 
 		LearnerExampleValueRequestListener<String> listener = new LearnerExampleValueRequestListener<String>() {
@@ -369,6 +375,57 @@ public class Main
 
 		return opinionatedPhraseExamples;
 	}
+
+	/**
+	 * Returns a list of polarity examples from the articles provided
+	 * @param articles -
+	 * @return -
+	 */
+	private static List<LearnerExample<String, Integer>> getPolarityExamples(List<NewsArticle> articles) {
+		List<LearnerExample<String, Integer>> examples = new ArrayList<LearnerExample<String, Integer>>();
+		LearnerExampleValueRequestListener<String> listener = new LearnerExampleValueRequestListener<String>() {
+			public Object valueOfFeatureForExample(String example, int featureId) { // Sends in a String of the sentence
+				LearnerFeature f = LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getLearnerFeatureFor(featureId);
+				Object val = LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getValueFor(featureId);
+				Sentence sentence = new Sentence(example);
+
+				switch(f) {
+					case CONTAINS_UNIGRAM:
+						String unigram = (String) val;
+						return sentence.words().contains(unigram);
+					case CONTAINS_BIGRAM:
+						String bigram = (String) val;
+
+						for (int i = 0; i <= sentence.words().size(); i++) {
+							String tmp;
+
+							if (i == 0)
+								tmp = PHI_WORD + " " + sentence.word(i);
+							else if (i == sentence.words().size())
+								tmp = sentence.word(i - 1) + " " + OMEGA_WORD;
+							else
+								tmp = sentence.word(i - 1) + " " + sentence.word(i);
+
+							if (tmp.equalsIgnoreCase(bigram))
+								return true;
+						}
+
+						return false;
+					default:
+						throw new RuntimeException("Could not return something for polarity");
+				}
+			}
+		};
+
+		for (NewsArticle a : articles) {
+			for (Opinion o : a.getGoldStandardOpinions().values()) {
+				examples.add(new LearnerExample<String, Integer>(o.sentence, o.sentimentId(), listener));
+			}
+		}
+
+		return examples;
+	}
+
 	////////////////////////
 	// FEATURE PROCESSING //
 	////////////////////////
@@ -620,6 +677,134 @@ public class Main
 	}
 
 	/**
+	 * Creates a vector for polarity.
+	 *
+	 * @param articles -
+	 * @param fileName -
+	 * @param classifier -
+	 */
+	private static void createPolarityVectorFile(ArrayList<NewsArticle> articles, String fileName, BaggedTrees<String, Integer> classifier) {
+		StringBuilder vectorLineBuilder = new StringBuilder();
+		TreeMap<Integer, Object> libLinearFeatureVector = new TreeMap<Integer, Object>();
+		LibLinearFeatureManager manager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
+
+		for (NewsArticle a : articles) {
+			for (Opinion o : a.getGoldStandardOpinions().values()) {
+				Sentence sentence = new Sentence(o.sentence);
+				List<String> words = sentence.words();
+
+				for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature.values())
+				{
+					int id;
+
+					switch (feature)
+					{
+						case CONTAINS_UNIGRAM:
+							for (String w : words)
+							{
+								id = manager.getIdFor(feature, w);
+								libLinearFeatureVector.put(id, true);
+							}
+							break;
+						case CONTAINS_BIGRAM:
+							String bigram;
+
+							for (int i = 0; i < words.size() + 1; i++)
+							{
+								if (i == 0)
+								{
+									bigram = PHI_WORD + " " + words.get(i);
+								} else if (i == words.size())
+								{
+									bigram = words.get(i - 1) + " " + OMEGA_WORD;
+								} else
+								{
+									bigram = words.get(i - 1) + " " + words.get(i);
+								}
+
+								id = manager.getIdFor(feature, bigram);
+								libLinearFeatureVector.put(id, true);
+							}
+
+							break;
+						case OBJECTIVITY_OF_SENTENCE:
+							id = manager.getIdFor(feature, "");
+							int objectivity = 0;
+
+							for (String w : words)
+							{
+								objectivity += sentiWordNetDictionary.getObjectivityOf(w);
+							}
+
+							objectivity /= words.size();
+							libLinearFeatureVector.put(id, objectivity);
+
+							break;
+
+						case OBJECTIVITY_OF_RELATED_WORD:
+							for (String w : words) {
+								if (!relatedWordsMap.containsKey(w.toLowerCase())) {
+									relatedWordsMap.put(w.toLowerCase(), getWordsRelatedTo(w.toLowerCase()));
+								}
+
+								for (String relatedWord : relatedWordsMap.get(w.toLowerCase())) {
+									id = manager.getIdFor(LibLinearFeatureManager.LibLinearFeature.HAS_WORD_RELATED_TO_OTHER_WORD, relatedWord);
+									libLinearFeatureVector.put(id, true);
+
+									objectivity = sentiWordNetDictionary.getObjectivityOf(relatedWord);
+									id = manager.getIdFor(LibLinearFeatureManager.LibLinearFeature.OBJECTIVITY_OF_RELATED_WORD, "");
+									libLinearFeatureVector.put(id, objectivity);
+								}
+							}
+							break;
+						case HAS_NAMED_ENTITY:
+							for (String entity : sentence.nerTags()) {
+								id = manager.getIdFor(feature, entity);
+								libLinearFeatureVector.put(id, true);
+							}
+							break;
+						case BAGGED_TREE_VOTER:
+							ArrayList<NewsArticle> tmp = new ArrayList<NewsArticle>();
+							tmp.add(a);
+							LearnerExample<String, Integer> example = getPolarityExamples(tmp).get(0);
+							List<Integer> guesses = classifier.allGuessesFor(example);
+
+							for (int i = 0; i < guesses.size(); i++) {
+								id = manager.getIdFor(feature, i);
+								int g = guesses.get(i);
+								libLinearFeatureVector.put(id, g);
+							}
+							break;
+					}
+				}
+			}
+		}
+
+		for (Map.Entry<Integer, Object> e : libLinearFeatureVector.entrySet())
+		{
+			vectorLineBuilder.append(" ");
+			vectorLineBuilder.append(e.getKey());
+			vectorLineBuilder.append(":");
+
+			if (e.getValue() instanceof Boolean)
+				vectorLineBuilder.append(1);
+			else
+				vectorLineBuilder.append(e.getValue());
+		}
+
+		try
+		{
+			PrintWriter vectorFile = new PrintWriter(fileName);
+			vectorFile.print(vectorLineBuilder.toString());
+			vectorFile.flush();
+			vectorFile.close();
+		} catch (FileNotFoundException e)
+		{
+			e.printStackTrace();
+		}
+	}
+
+	/**
 	 * Creates a single line for LibLinear of the given sentence from the news article provided.
 	 *
 	 * @param article -
@@ -717,7 +902,7 @@ public class Main
 						if (g)
 							libLinearFeatureVector.put(id, 1);
 						else
-							libLinearFeatureVector.put(id, 1);
+							libLinearFeatureVector.put(id, 0);
 					}
 					break;
 			}
