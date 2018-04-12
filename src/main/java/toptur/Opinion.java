@@ -62,4 +62,9 @@ public class Opinion {
     private static boolean opinionExpressionsMatch(String o1, String o2) {
         return o1.contains(o2) || o2.contains(o1);
     }
+    
+    public String toString()
+    {
+    		return "\nOpinion: " + opinion + "\n" + "Agent: " + agent + "\n" + "Target: " + target;
+    }
 }
