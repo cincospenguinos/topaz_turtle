@@ -90,27 +90,27 @@ public class Main
 			// TODO: Multithread this chunk
 
 			// Train the sentence classifier
-//			System.out.println("Training the sentence classifier!");
-//			System.out.print("\tbagged trees...");
-//			List<LearnerExample<Sentence, Boolean>> sentenceExamples = getOpinionatedSentenceExamples(devArticles);
-//			BaggedTrees<Sentence, Boolean> opinionatedSentenceClassifier = new BaggedTrees<Sentence, Boolean>(sentenceExamples,
-//					LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getSentenceFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
-//			System.out.println("done.");
-//			System.out.print("\tliblinear...");
-//			createSentencesVectorFile(devArticles, ".sentences.vector", opinionatedSentenceClassifier);
-//			trainLibLinear(".sentences.vector", SENTENCES_LIB_LINEAR_MODEL_FILE);
-//			System.out.println("done.");
+			System.out.println("Training the sentence classifier!");
+			System.out.print("\tbagged trees...");
+			List<LearnerExample<Sentence, Boolean>> sentenceExamples = getOpinionatedSentenceExamples(devArticles);
+			BaggedTrees<Sentence, Boolean> opinionatedSentenceClassifier = new BaggedTrees<Sentence, Boolean>(sentenceExamples,
+					LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getSentenceFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
+			System.out.println("done.");
+			System.out.print("\tliblinear...");
+			createSentencesVectorFile(devArticles, ".sentences.vector", opinionatedSentenceClassifier);
+			trainLibLinear(".sentences.vector", SENTENCES_LIB_LINEAR_MODEL_FILE);
+			System.out.println("done.");
 
-//			System.out.println("Training the opinion classifier!");
-//			System.out.print("\tbagged trees...");
-//			List<LearnerExample<String, Integer>> opinionExamples = getOpinionWordExamples(devArticles);
-//			BaggedTrees<String, Integer> opinionatedWordClassifier = new BaggedTrees<String, Integer>(opinionExamples,
-//					LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getOpinionPhraseFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
-//			System.out.println("done.");
-//			System.out.print("\tliblinear...");
-//			createOpinionatedPhraseVectorFile(devArticles, ".opinions.vector", opinionatedWordClassifier);
-//			trainLibLinear(".opinions.vector", OPINIONS_LIB_LINEAR_MODEL_FILE);
-//			System.out.println("done.");
+			System.out.println("Training the opinion classifier!");
+			System.out.print("\tbagged trees...");
+			List<LearnerExample<String, Integer>> opinionExamples = getOpinionWordExamples(devArticles);
+			BaggedTrees<String, Integer> opinionatedWordClassifier = new BaggedTrees<String, Integer>(opinionExamples,
+					LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getOpinionPhraseFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
+			System.out.println("done.");
+			System.out.print("\tliblinear...");
+			createOpinionatedPhraseVectorFile(devArticles, ".opinions.vector", opinionatedWordClassifier);
+			trainLibLinear(".opinions.vector", OPINIONS_LIB_LINEAR_MODEL_FILE);
+			System.out.println("done.");
 
 			// TODO: Train the agent classifier
 			// TODO: Train the target classifier
@@ -122,9 +122,6 @@ public class Main
 					LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getPolarityPhraseFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
 			createPolarityVectorFile(devArticles, ".polarities.vector", polarityClassifier);
 			trainLibLinear(".polarities.vector", POLARITY_LIB_LINEAR_MODEL_FILE);
-
-			// TODO: Test accuracy of all other learners
-			// TODO: Train liblinear to handle input from the bagged tree classifier
 
 			System.out.println("Saving classifiers to disk...");
 //			opinionatedSentenceClassifier.saveToFile(BAGGED_TREES_SENTENCE_CLASSIFIER);
@@ -153,7 +150,62 @@ public class Main
 
 			ArrayList<NewsArticle> testArticles = getAllDocsFrom(TEST_DOCS);
 
-			// TODO: Test learners
+			Gson gson = new Gson();
+
+			// Grab the sentence classifier
+			BaggedTrees<Sentence, Boolean> sentenceClassifier = null;
+			try {
+				StringBuilder builder = new StringBuilder();
+				Scanner s = new Scanner(new File(BAGGED_TREES_SENTENCE_CLASSIFIER));
+				while(s.hasNextLine()) builder.append(s.nextLine());
+				s.close();
+
+				sentenceClassifier = gson.fromJson(builder.toString(), new TypeToken<BaggedTrees<Sentence, Boolean>>(){}.getType());
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+				System.exit(1);
+			}
+
+			// Grab the opinion classifier
+			BaggedTrees<String, Integer> opinionClassifier = null;
+			try {
+				StringBuilder builder = new StringBuilder();
+				Scanner s = new Scanner(new File(BAGGED_TREES_SENTENCE_CLASSIFIER));
+				while(s.hasNextLine()) builder.append(s.nextLine());
+				s.close();
+
+				opinionClassifier = gson.fromJson(builder.toString(), new TypeToken<BaggedTrees<String, Integer>>(){}.getType());
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+				System.exit(1);
+			}
+
+			// Grab the polarity classifier
+			BaggedTrees<String, Integer> polarityClassifier = null;
+			try {
+				StringBuilder builder = new StringBuilder();
+				Scanner s = new Scanner(new File(BAGGED_TREES_SENTENCE_CLASSIFIER));
+				while(s.hasNextLine()) builder.append(s.nextLine());
+				s.close();
+
+				polarityClassifier = gson.fromJson(builder.toString(), new TypeToken<BaggedTrees<String, Integer>>(){}.getType());
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+				System.exit(1);
+			}
+
+			// Setup the LibLinear stuff
+			createSentencesVectorFile(testArticles, ".sentences.vector", sentenceClassifier);
+			createOpinionatedPhraseVectorFile(testArticles, ".opinions.vector", opinionClassifier);
+			createPolarityVectorFile(testArticles, ".polarity.vector", polarityClassifier);
+
+			testLibLinear(".sentences.vector", SENTENCES_LIB_LINEAR_MODEL_FILE, "/dev/null");
+			testLibLinear(".opinions.vector", OPINIONS_LIB_LINEAR_MODEL_FILE, "/dev/null");
+			testLibLinear(".polarity.vector", POLARITY_LIB_LINEAR_MODEL_FILE, "/dev/null");
+
+			// Evaluate everything
+
+			evaluateExtractedOpinions(testArticles, evalOptions);
 
 		} else if (task.equals("extract"))
 		{
@@ -945,25 +997,100 @@ public class Main
 	// TEST CLASSIFIERS //
 	//////////////////////
 
+	private static void testLibLinear(String testVectorFileName, String modelFileName, String outputFileName) {
+		// Now that the vector file is put together, we need to run liblinear
+		try
+		{
+			System.out.println("Predicting \"" + testVectorFileName + "\" with liblinear...");
+
+			Runtime runtime = Runtime.getRuntime();
+			Scanner s = new Scanner(runtime
+					.exec("./liblinear_predict " + testVectorFileName + " " + modelFileName + " " + outputFileName)
+					.getInputStream());
+			Thread.sleep(20);
+			while (s.hasNextLine())
+				System.out.println(s.nextLine());
+
+		} catch (IOException e)
+		{
+			e.printStackTrace();
+		} catch (InterruptedException e)
+		{
+			e.printStackTrace();
+		}
+	}
+
 	//////////////////////////////////////
 	// EXTRACT/EVALUATE WITH CLASSIFIER //
 	//////////////////////////////////////
 
 	/**
-	 * Returns the accuracy of the classifier provided using the examples provided. Make sure that the generic types
-	 * match; this method throws an UncheckedCastException if they don't match.
+	 * Evaluates the extracted opinions, given whatever evaluation options desired.
 	 *
-	 * @param examples -
-	 * @param classifier -
-	 * @return double
+	 * @param articles -
+	 * @param evaluationOptions -
 	 */
-	private static double accuracyOfClassifier(List<LearnerExample> examples, BaggedTrees classifier) {
-		double correct = 0.0;
-		for (LearnerExample e : examples)
-			if (classifier.guessFor(e).equals(e.getLabel()))
-				correct += 1.0;
+	private static void evaluateExtractedOpinions(ArrayList<NewsArticle> articles,
+												  Set<EvaluationOption> evaluationOptions)
+	{
+		double totalPrecision = 0.0;
+		double totalRecall = 0.0;
+		double totalFScore = 0.0;
 
-		return correct / (double) examples.size();
+		System.out.println("Name\tPrecision\tRecall\tFScore");
+
+		for (NewsArticle article : articles)
+		{
+			Map<String, Opinion> extractedOpinions = (Map<String, Opinion>) article.getExtractedOpinions().clone();
+			Map<String, Opinion> goldStandardOpinions = (Map<String, Opinion>) article.getGoldStandardOpinions().clone();
+
+			double truePositives = 0.0;
+
+			TreeSet<String> correct = new TreeSet<String>();
+
+			for (Opinion goldStandard : goldStandardOpinions.values())
+			{
+				for (Opinion extracted : extractedOpinions.values())
+				{
+					boolean matches = true;
+
+					for (EvaluationOption option : evaluationOptions)
+					{
+						if (!Opinion.opinionsMatchGivenOption(extracted, goldStandard, option))
+						{
+							matches = false;
+							break;
+						}
+					}
+
+					if (matches && !correct.contains(extracted.opinion))
+					{
+						correct.add(extracted.opinion);
+						truePositives += 1.0;
+					}
+				}
+			}
+
+			for (String s : correct)
+			{
+				extractedOpinions.remove(s);
+				goldStandardOpinions.remove(s);
+			}
+
+			double precision = truePositives / (extractedOpinions.size() + correct.size());
+			double recall = truePositives / (goldStandardOpinions.size() + correct.size());
+			double fscore = 2 * ((precision * recall) / (Math.max(1, precision + recall)));
+
+			System.out.println(article.getDocumentName() + "\t" + precision + "\t" + recall + "\t" + fscore);
+
+			totalPrecision += precision;
+			totalRecall += recall;
+			totalFScore += fscore;
+		}
+
+		System.out.println("\nTOTAL PRECISION: " + totalPrecision / articles.size());
+		System.out.println("\nTOTAL RECALL: " + totalRecall / articles.size());
+		System.out.println("\nTOTAL FSCORE: " + totalFScore / articles.size());
 	}
 
 	////////////////////
