@@ -1,14 +1,13 @@
 package toptur;
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 
 public class LearnerFeatureManager {
 
@@ -152,8 +151,29 @@ public class LearnerFeatureManager {
         }
     }
 
+    /**
+     * Pulls up the LearnerFeatureManager from a file. Takes a long time.
+     * @param f
+     * @return
+     */
     private static LearnerFeatureManager pullFromFile(File f) {
-        // TODO: THIS
-        return null;
+        if (!f.exists())
+            throw new RuntimeException("No LearnerFeatureFile found!");
+
+        try {
+            StringBuilder builder = new StringBuilder();
+            Scanner s = new Scanner(f);
+            while(s.hasNextLine()) builder.append(s.nextLine());
+            s.close();
+
+            Gson gson = new Gson();
+
+            return gson.fromJson(builder.toString(), new TypeToken<LearnerFeatureManager>(){}.getType());
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
+
+        throw new RuntimeException("This code should never run.");
     }
 }

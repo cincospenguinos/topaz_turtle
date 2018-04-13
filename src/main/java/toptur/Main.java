@@ -120,12 +120,15 @@ public class Main
 			List<LearnerExample<String, Integer>> polarityExamples = getPolarityExamples(devArticles);
 			BaggedTrees<String, Integer> polarityClassifier = new BaggedTrees<String, Integer>(polarityExamples,
 					LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getPolarityPhraseFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
+			System.out.println("done.");
+			System.out.print("liblinear...");
 			createPolarityVectorFile(devArticles, ".polarities.vector", polarityClassifier);
 			trainLibLinear(".polarities.vector", POLARITY_LIB_LINEAR_MODEL_FILE);
+			System.out.println("done.");
 
 			System.out.println("Saving classifiers to disk...");
-//			opinionatedSentenceClassifier.saveToFile(BAGGED_TREES_SENTENCE_CLASSIFIER);
-//			opinionatedWordClassifier.saveToFile(BAGGED_TREES_OPINION_CLASSIFIER);
+			opinionatedSentenceClassifier.saveToFile(BAGGED_TREES_SENTENCE_CLASSIFIER);
+			opinionatedWordClassifier.saveToFile(BAGGED_TREES_OPINION_CLASSIFIER);
 			polarityClassifier.saveToFile(BAGGED_TREES_POLARITY_CLASSIFIER);
 			LearnerFeatureManager.getInstance(null).saveInstance(LEARNER_FEATURE_MANAGER_FILE);
 			LibLinearFeatureManager.saveInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
@@ -170,7 +173,7 @@ public class Main
 			BaggedTrees<String, Integer> opinionClassifier = null;
 			try {
 				StringBuilder builder = new StringBuilder();
-				Scanner s = new Scanner(new File(BAGGED_TREES_SENTENCE_CLASSIFIER));
+				Scanner s = new Scanner(new File(BAGGED_TREES_OPINION_CLASSIFIER));
 				while(s.hasNextLine()) builder.append(s.nextLine());
 				s.close();
 
@@ -184,7 +187,7 @@ public class Main
 			BaggedTrees<String, Integer> polarityClassifier = null;
 			try {
 				StringBuilder builder = new StringBuilder();
-				Scanner s = new Scanner(new File(BAGGED_TREES_SENTENCE_CLASSIFIER));
+				Scanner s = new Scanner(new File(BAGGED_TREES_POLARITY_CLASSIFIER));
 				while(s.hasNextLine()) builder.append(s.nextLine());
 				s.close();
 
@@ -204,6 +207,7 @@ public class Main
 			testLibLinear(".polarity.vector", POLARITY_LIB_LINEAR_MODEL_FILE, "/dev/null");
 
 			// Evaluate everything
+
 
 			evaluateExtractedOpinions(testArticles, evalOptions);
 
@@ -687,7 +691,7 @@ public class Main
 								List<Integer> guesses = classifier.allGuessesFor(example);
 
 								for (int j = 0; j < guesses.size(); j++) {
-									id = manager.getIdFor(feature, j);
+									id = manager.getIdFor(feature, Integer.toString(j)); // NOTE: Using strings because integers aren't okay for some reason
 									int g = guesses.get(j);
 									stupidMap.put(id, id + ":" + g);
 								}
@@ -822,7 +826,7 @@ public class Main
 							List<Integer> guesses = classifier.allGuessesFor(example);
 
 							for (int i = 0; i < guesses.size(); i++) {
-								id = manager.getIdFor(feature, i);
+								id = manager.getIdFor(feature, Integer.toString(i));
 								int g = guesses.get(i);
 								libLinearFeatureVector.put(id, g);
 							}
@@ -948,7 +952,7 @@ public class Main
 					List<Boolean> guesses = classifier.allGuessesFor(example);
 
 					for (int i = 0; i < guesses.size(); i++) {
-						id = manager.getIdFor(feature, i);
+						id = manager.getIdFor(feature, Integer.toString(i)); // NOTE: I got a weird exception here so I'm trying to throw Strings at it instead of integers
 						boolean g = guesses.get(i);
 
 						if (g)

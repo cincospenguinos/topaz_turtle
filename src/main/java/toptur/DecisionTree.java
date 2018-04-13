@@ -61,6 +61,10 @@ public class DecisionTree<E, L> {
         Object featureValue = example.valueOf(featureId);
         DecisionTree<E, L> child = children.get(featureValue);
 
+        if (child == null) { // If child is null, try converting to string
+            child = children.get(featureValue.toString());
+        }
+
         return child.guessFor(example);
     }
 
