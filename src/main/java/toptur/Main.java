@@ -43,14 +43,10 @@ public class Main
 
 	public static final String BAGGED_TREES_SENTENCE_CLASSIFIER = TOPTUR_DATA_FOLDER + "bagged_trees_sentences.json";
 	public static final String BAGGED_TREES_OPINION_CLASSIFIER = TOPTUR_DATA_FOLDER + "bagged_trees_opinions.json";
-	public static final String BAGGED_TREES_AGENT_CLASSIFIER = TOPTUR_DATA_FOLDER + "bagged_trees_agents.json";
-	public static final String BAGGED_TREES_TARGET_CLASSIFIER = TOPTUR_DATA_FOLDER + "bagged_trees_targets.json";
 	public static final String BAGGED_TREES_POLARITY_CLASSIFIER = TOPTUR_DATA_FOLDER + "bagged_trees_polarity.json";
 
 	public static final String SENTENCES_LIB_LINEAR_MODEL_FILE = TOPTUR_DATA_FOLDER + "lib_linear_sentences.model";
 	public static final String OPINIONS_LIB_LINEAR_MODEL_FILE = TOPTUR_DATA_FOLDER + "lib_linear_opinons.model";
-	public static final String TARGET_LIB_LINEAR_MODEL_FILE = TOPTUR_DATA_FOLDER + "lib_linear_targets.model";
-	public static final String AGENT_LIB_LINEAR_MODEL_FILE = TOPTUR_DATA_FOLDER + "lib_linear_agents.model";
 	public static final String POLARITY_LIB_LINEAR_MODEL_FILE = TOPTUR_DATA_FOLDER + "lib_linear_polarity.model";
 
 	private static final String PHI_WORD = "_PHI_WORD_";
@@ -207,14 +203,72 @@ public class Main
 			testLibLinear(".polarity.vector", POLARITY_LIB_LINEAR_MODEL_FILE, "/dev/null");
 
 			// Evaluate everything
-
+			for (NewsArticle a : testArticles) {
+				extractOpinionFramesFor(a, sentenceClassifier, opinionClassifier);
+			}
 
 			evaluateExtractedOpinions(testArticles, evalOptions);
 
 		} else if (task.equals("extract"))
 		{
-			// TODO: Extract things
+			Gson gson = new Gson();
 
+			// Grab the sentence classifier
+			BaggedTrees<Sentence, Boolean> sentenceClassifier = null;
+			try {
+				StringBuilder builder = new StringBuilder();
+				Scanner s = new Scanner(new File(BAGGED_TREES_SENTENCE_CLASSIFIER));
+				while(s.hasNextLine()) builder.append(s.nextLine());
+				s.close();
+
+				sentenceClassifier = gson.fromJson(builder.toString(), new TypeToken<BaggedTrees<Sentence, Boolean>>(){}.getType());
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+				System.exit(1);
+			}
+
+			// Grab the opinion classifier
+			BaggedTrees<String, Integer> opinionClassifier = null;
+			try {
+				StringBuilder builder = new StringBuilder();
+				Scanner s = new Scanner(new File(BAGGED_TREES_OPINION_CLASSIFIER));
+				while(s.hasNextLine()) builder.append(s.nextLine());
+				s.close();
+
+				opinionClassifier = gson.fromJson(builder.toString(), new TypeToken<BaggedTrees<String, Integer>>(){}.getType());
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+				System.exit(1);
+			}
+
+			// Grab the polarity classifier
+			BaggedTrees<String, Integer> polarityClassifier = null;
+			try {
+				StringBuilder builder = new StringBuilder();
+				Scanner s = new Scanner(new File(BAGGED_TREES_POLARITY_CLASSIFIER));
+				while(s.hasNextLine()) builder.append(s.nextLine());
+				s.close();
+
+				polarityClassifier = gson.fromJson(builder.toString(), new TypeToken<BaggedTrees<String, Integer>>(){}.getType());
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+				System.exit(1);
+			}
+
+			for (int i = 1; i < args.length; i++)
+			{
+				File file = new File(args[i]);
+
+				if (file.exists())
+				{
+					NewsArticle article = new NewsArticle(file);
+					extractOpinionFramesFor(article, sentenceClassifier, opinionClassifier); // TODO: Add polarity classifier
+					System.out.println(article);
+				} else
+				{
+					System.err.println("\"" + args[i] + "\" could not be found!");
+				}
+			}
 		} else if (task.equals("explore"))
 		{
 			ArrayList<NewsArticle> devArticles = getAllDocsFrom(DEV_DOCS);
@@ -495,7 +549,7 @@ public class Main
 	 * @param articles -
 	 * @param nameOfVectorFile -
 	 */
-	private static void createSentencesVectorFile(ArrayList<NewsArticle> articles, String nameOfVectorFile, BaggedTrees<Sentence, Boolean> classifier) {
+	private static void createSentencesVectorFile(List<NewsArticle> articles, String nameOfVectorFile, BaggedTrees<Sentence, Boolean> classifier) {
 		StringBuilder vectorFileBuilder = new StringBuilder();
 
 		for (NewsArticle article : articles)
@@ -1027,6 +1081,228 @@ public class Main
 	//////////////////////////////////////
 	// EXTRACT/EVALUATE WITH CLASSIFIER //
 	//////////////////////////////////////
+
+	/**
+	 * Extracts all the opinion frames for the article provided.
+	 *
+	 * @param a -
+	 */
+	private static void extractOpinionFramesFor(NewsArticle a, BaggedTrees<Sentence, Boolean> sentenceClassifier, BaggedTrees<String, Integer> opinionClassifier) {
+		Document document = new Document(a.getFullText());
+
+		for (Sentence s : document.sentences()) {
+			if (sentenceIsOpinionated(s, sentenceClassifier)) {
+				for (String expression : extractOpinionsFromSentence(s, opinionClassifier)) {
+					Opinion o = new Opinion();
+					o.opinion = expression;
+					o.sentence = s.toString();
+
+					// TODO: Add polarity classifier
+					a.addExtractedOpinion(o);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Returns true if the sentence provided is opinionated
+	 *
+	 * @param s -
+	 * @param classifier -
+	 * @return boolean
+	 */
+	private static boolean sentenceIsOpinionated(Sentence s, BaggedTrees<Sentence, Boolean> classifier) {
+		NewsArticle tmpArticle = new NewsArticle("tmp", s.toString(), new Opinion[0]);
+		List<NewsArticle> list = new ArrayList<NewsArticle>();
+		list.add(tmpArticle);
+		createSentencesVectorFile(list, ".sentence_tmp.vector", classifier);
+		try
+		{
+			Process p = Runtime.getRuntime().exec("./liblinear_predict .sentence_tmp.vector " + SENTENCES_LIB_LINEAR_MODEL_FILE + " output_sentence.txt");
+			p.waitFor();
+			Scanner derp = new Scanner(Runtime.getRuntime().exec("cat output.txt").getInputStream());
+			int i = 0;
+			if (derp.hasNextInt())
+			{
+				i = derp.nextInt();
+			}
+			derp.close();
+			return i == 1;
+		} catch (IOException e)
+		{
+			e.printStackTrace();
+		} catch (InterruptedException e)
+		{
+			e.printStackTrace();
+		}
+
+		return false;
+	}
+
+	/**
+	 * Returns collection of opinions from some sentence s.
+	 *
+	 * @param sentence -
+	 * @param classifier -
+	 * @return List. Yah brah.
+	 */
+	private static List<String> extractOpinionsFromSentence(Sentence sentence, BaggedTrees<String, Integer> classifier) {
+		ArrayList<String> list = new ArrayList<String>();
+		LibLinearFeatureManager manager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
+		LinkedList<Integer> bioLabels = new LinkedList<Integer>();
+
+		// Grab the BIO labels for each word in the sentence
+		for (int i = 0; i < sentence.words().size(); i++) {
+			String word = sentence.word(i);
+			String pos = sentence.posTag(i);
+
+			TreeMap<Integer, String> stupidMap = new TreeMap<Integer, String>();
+			for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature
+					.values())
+			{
+				int id;
+				switch (feature)
+				{
+					case PREVIOUS_UNIGRAM:
+						String previous;
+
+						if (i > 0)
+							previous = sentence.word(i - 1);
+						else
+							previous = PHI_WORD;
+
+						id = manager.getIdFor(feature, previous);
+						stupidMap.put(id, id + ":1");
+						break;
+					case THIS_UNIGRAM:
+						id = manager.getIdFor(feature, word);
+						stupidMap.put(id, id + ":1");
+						break;
+					case NEXT_UNIGRAM:
+						String next;
+
+						if (i < sentence.words().size() - 1)
+							next = sentence.word(i + 1);
+						else
+							next = OMEGA_WORD;
+
+						id = manager.getIdFor(feature, next);
+						stupidMap.put(id, id + ":1");
+						break;
+					case PREVIOUS_PART_OF_SPEECH:
+						String previousPos;
+
+						if (i > 0)
+							previousPos = sentence.posTag(i - 1);
+						else
+							previousPos = PHI_POS;
+
+						id = manager.getIdFor(feature, previousPos);
+						stupidMap.put(id, id + ":1");
+						break;
+					case THIS_PART_OF_SPEECH:
+						id = manager.getIdFor(feature, pos);
+						stupidMap.put(id, id + ":1");
+						break;
+					case NEXT_PART_OF_SPEECH:
+						String nextPos;
+
+						if (i < sentence.words().size() - 1)
+							nextPos = sentence.posTag(i + 1);
+						else
+							nextPos = OMEGA_POS;
+
+						id = manager.getIdFor(feature, nextPos);
+						stupidMap.put(id, id + ":1");
+						break;
+					case OBJECTIVITY_OF_WORD:
+						id = manager.getIdFor(feature, "");
+						int objectivity = sentiWordNetDictionary.getObjectivityOf(word);
+						stupidMap.put(id, id + ":" + objectivity);
+						break;
+					case BAGGED_TREE_VOTER:
+						ArrayList<NewsArticle> tmp = new ArrayList<NewsArticle>();
+						Opinion o = new Opinion();
+						o.sentence = sentence.toString();
+						o.opinion = sentence.toString();
+
+						Opinion[] opinions = new Opinion[] { o };
+						tmp.add(new NewsArticle("", sentence.toString(), opinions));
+						LearnerExample<String, Integer> example = getOpinionWordExamples(tmp).get(0);
+						List<Integer> guesses = classifier.allGuessesFor(example);
+
+						for (int j = 0; j < guesses.size(); j++) {
+							id = manager.getIdFor(feature, Integer.toString(j)); // NOTE: Using strings because integers aren't okay for some reason
+							int g = guesses.get(j);
+							stupidMap.put(id, id + ":" + g);
+						}
+						break;
+				}
+			}
+
+			StringBuilder vectorFileBuilder = new StringBuilder();
+			vectorFileBuilder.append("0 ");
+
+			for (String s : stupidMap.values()) {
+				vectorFileBuilder.append(s);
+				vectorFileBuilder.append(' ');
+			}
+
+			String filename = ".opinions_tmp.vector";
+
+			try
+			{
+				PrintWriter vectorFile = new PrintWriter(filename);
+				vectorFile.print(vectorFileBuilder.toString());
+				vectorFile.flush();
+				vectorFile.close();
+			} catch (FileNotFoundException e)
+			{
+				e.printStackTrace();
+			}
+
+			try
+			{
+				Process p = Runtime.getRuntime().exec("./liblinear_predict " + filename + " " + OPINIONS_LIB_LINEAR_MODEL_FILE + " output_opinion.txt");
+				p.waitFor();
+				Scanner derp = new Scanner(Runtime.getRuntime().exec("cat output_opinion.txt").getInputStream());
+
+				int val = 0;
+				if (derp.hasNextInt())
+				{
+					val = derp.nextInt();
+				}
+				derp.close();
+
+				bioLabels.add(val);
+			} catch (IOException e)
+			{
+				e.printStackTrace();
+			} catch (InterruptedException e)
+			{
+				e.printStackTrace();
+			}
+		}
+
+		// Now that we have the BIO labels, we can pull out the opinion phrases
+		StringBuilder builder = new StringBuilder();
+		boolean flag = false;
+		for (int i = 0; i < bioLabels.size(); i++) {
+			int label = bioLabels.get(i);
+
+			if (label == 1 || label == 2) {
+				flag = true;
+				builder.append(sentence.word(i));
+				builder.append(' ');
+			} else if (flag) {
+				flag = false;
+				list.add(builder.toString());
+				builder = new StringBuilder();
+			}
+		}
+
+		return list;
+	}
 
 	/**
 	 * Evaluates the extracted opinions, given whatever evaluation options desired.

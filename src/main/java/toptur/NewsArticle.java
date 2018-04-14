@@ -45,7 +45,7 @@ public class NewsArticle {
         goldStandardOpinions = new HashMap<String, Opinion>();
     }
 
-    private NewsArticle(String name, String _fullText, Opinion[] goldStandards) {
+    public NewsArticle(String name, String _fullText, Opinion[] goldStandards) {
         documentName = name;
         fullText = _fullText;
         extractedOpinions = new HashMap<String, Opinion>();
