@@ -1,0 +1,126 @@
+\documentclass{article}
+%%
+%% Author: Andre LaFleur and Matthew Canova
+%% 3/14/18
+%%
+
+% Preamble
+%\documentclass[11pt]{article}
+
+% Packages
+\usepackage{a4wide}
+
+\newcommand\textbox[1]{%
+  \parbox{.4\textwidth}{#1}%
+}
+
+\title{Topaz Turtle---Baseline 2}
+\author{Andre LaFleur and Matthew Canova}
+
+% Document
+\begin{document}
+    \maketitle
+
+        \section{Sentence, Polarity, and Opinion Expression}
+
+        Opinions from each news article are extracted by first determining if a given sentence in a document has an opinion, followed by a classification
+    system to extract every opinion from the sentence and the opinion expression itself. This is done using two different classifiers: a Bagged Trees implementation
+    that considers a variety of features for every article and a Support Vector Machine that takes in the original set of features as well as the guesses of Bagged Trees.
+    This creates a more layered classification structure that yields better accuracy.
+
+     
+       \section{Agent and Target}
+       
+       For each Opinion extracted in the gold standard, an Agent and Target were also identified. We used a multi-class classification system to identify an Agent and Target for each Opinion.
+
+       \subsection{Data}
+       
+       The data is made up of articles that have opinions extracted from them. For the Agent field, there is a "null" option, an "implicit" option, and a "w" (writer) option, for which proxies are entered for classification. The Target field only has "null" option that needs a proxy. \\ \\
+\textbox{Number of Opinions:\hfil}  	                \textbox{\hfil 518\hfil} \\\\
+\textbox{Number of Agents Labeled Null:\hfil}  \textbox{\hfil 310\hfil}	\\
+\textbox{Number of Agents Labeled Word:\hfil} 	\textbox{\hfil 12\hfil}\\
+\textbox{Number of Agents Labeled W:\hfil} 	\textbox{\hfil 186\hfil}\\
+\textbox{Number of Agents Labeled Implicit:\hfil} 	\textbox{\hfil 10\hfil}\\\\
+\textbox{Number of Targets Labeled Null:\hfil} \textbox{\hfil 345\hfil}\\	
+\textbox{Number of Targets Labeled Word:\hfil}  \textbox{\hfil 173\hfil}
+            
+      \subsection{Classifier}
+For classification we used Liblinear and the L1-regularized logistic regression classifier. Liblinear recommends that for small datasets (which is our case) to choose an L1-regularized classifier. Additionally, because the Agent/Target classification is multi-class, we need to use Logistic Regression so that we have real-valued probabilities that can be compared. 
+
+\newpage
+
+	\subsection{F-Score}
+	
+	Here is how we calculate the F-Score for Agent and Target extraction:\\\\
+	
+	Precision: $ \frac{\# of Opinions Labeled Correctly Including Null}{\# of Opinions}$\\
+	
+	Recall: $ \frac{\# of Non-Null Opinions Labeled Correctly}{\# of Non-Null Opinions}$\\
+	
+	F-Score: $ 2 * \frac{Precision * Recall}{Precision + Recall}$
+           
+	\subsection{Results Phase 1}
+	
+	For Phase 1, we just used a basic Bag of Words features for the classifier. For Agent and Target, because we consider each word, and the bag of word is over the sentence, each word is considered equally. This meant that our tie-breaker was the decider, and the results of this basically acted as an "All Null" or "All W" heuristic. \\
+	
+\noindent Example Confidences from Phase 1: \\\\
+\{no=0.134746, \_\_W\_WORD\_\_=0.134746, \_\_IMP\_WORD\_\_=0.134746, has=0.134746, right=0.134746, \_\_NULL\_WORD\_\_=0.134746\}
+
+\begin{center} 
+
+        \begin{tabular}{ | l | c | r | c}
+            \hline
+            Extraction Type & Precision & Recall & F-Score/Accuracy \\ \hline
+            Agent(NULL) & .94 & .00 & .00\\ \hline
+            Target(NULL) & .51 & .00 & .00\\ \hline
+            Agent(W) & .01 & .20 & .02\\ \hline
+        \end{tabular}
+    \end{center}
+            
+          \subsection{Results Phase 2}
+
+	For Phase 2, we added additional features to try and get differentiating confidences between our candidates. We added lexical features for the word and it's previous and next words. We added the same for part of speech tags. We also used SentiWordNet to attach a sentiment to each word and use that as a feature. We were able to get differentiated confidences, but the system still completely biased to "null" as a response. Some reserach indicates that given our examples distribution, we should expect this kind of result unless we can include a "smoking gun" feature that heavily indicates the presence of an Agent/Target or lack thereof. \\
+	
+\noindent Example Confidences from Phase 2: \\\\
+\{\_\_W\_WORD\_\_=0.215278, have=0.00224702, democratic=0.00401634, \_\_IMP\_WORD\_\_=0.215278, further=0.029979, denied=0.0267232, our=0.0212454, space=0.00443405, \_\_NULL\_WORD\_\_=0.533963\}
+	
+	
+\begin{center} 
+
+        \begin{tabular}{ | l | c | r | c}
+            \hline
+            Extraction Type & Precision & Recall & F-Score/Accuracy \\ \hline
+            Agent & .94 & .00 & .00\\ \hline
+            Target & .51 & .00 & .00\\ \hline
+        \end{tabular}
+    \end{center}
+            
+
+            
+	\subsection{Results Phase 3}
+
+For Phase 3, we began to focus features on the opinion and sentence itself, as we primarily need to help the classifier differentiate between an Opinion with an Agent/Target and one without. We added features related to the proportions of parts of speech in the sentence, the amount of named entities in the sentence, and length of the opinion, and the length of the sentence. This had good and bad results. The good result is that we finally got the classifier to make a non-null label (for Agent only). It also made the label we would have wanted (a "w"), but in all cases, it guessed incorrectly. This hurt our precision without any gain for recall. \\ \\
+
+\noindent Example Confidences from Phase 3 (with a winning "w"): \\\\
+\{the=0.0034309, world=0.00423183, \_\_W\_WORD\_\_=0.308228, in=0.00829856, of=0.00743688,\\ independant=0.00239053, \_\_IMP\_WORD\_\_=0.308228, sense=0.00782845, real=0.00540055, \\\_\_NULL\_WORD\_\_=0.298391\}
+
+\begin{center} 
+
+        \begin{tabular}{ | l | c | r | c}
+            \hline
+            Extraction Type & Precision & Recall & F-Score/Accuracy \\ \hline
+            Agent & .85 & .00 & .00\\ \hline
+            Target & .51 & .00 & .00\\ \hline
+        \end{tabular}
+    \end{center}
+
+    \section{Resources}
+
+    \begin{itemize}
+        \item The API DataMuse was used to gather words related to other words. This was a feature used by the SVM to capture a greater amount of semantic drift.
+        \item Stanford CoreNLP was used for lower level NLP tasks (part of speech tagging, sentence separation, etc.)
+        \item LibLinear is the off-the-shelf SVM machine learning system that we used.
+        \item SentiWordNet was used to get the subjectivity of a variety of words
+    \end{itemize}
+
+\end{document}

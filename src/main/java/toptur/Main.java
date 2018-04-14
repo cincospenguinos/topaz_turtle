@@ -1045,8 +1045,8 @@ public class Main
 		// Now that the vector file is put together, we need to run liblinear
 		try
 		{
-			Runtime.getRuntime().exec("./liblinear_train " + vectorFileName + " " + modelFileName);
-			Thread.sleep(300); // Because sometimes liblinear doesn't print out to the model file in time
+			Process p = Runtime.getRuntime().exec("./liblinear_train " + vectorFileName + " " + modelFileName);
+			p.waitFor();
 		} catch (IOException e)
 		{
 			e.printStackTrace();
@@ -1102,7 +1102,6 @@ public class Main
 					o.sentence = s.toString();
 					o.sentiment = extractPolarityOfSentence(s, polarityClassifier);
 
-					// TODO: Add polarity classifier
 					a.addExtractedOpinion(o);
 				}
 			}
@@ -1126,12 +1125,13 @@ public class Main
 			Process p = Runtime.getRuntime().exec("./liblinear_predict .sentence_tmp.vector " + SENTENCES_LIB_LINEAR_MODEL_FILE + " output_sentence.txt");
 			p.waitFor();
 			Scanner derp = new Scanner(Runtime.getRuntime().exec("cat output.txt").getInputStream());
-			int i = 0;
+			int i = -1;
 			if (derp.hasNextInt())
 			{
 				i = derp.nextInt();
 			}
 			derp.close();
+
 			return i == 1;
 		} catch (IOException e)
 		{
@@ -1328,7 +1328,6 @@ public class Main
 		vectorFileBuilder.append(' ');
 
 		List<String> words = sentence.words();
-		List<String> partsOfSpeech = sentence.posTags();
 
 		TreeMap<Integer, Object> libLinearFeatureVector = new TreeMap<Integer, Object>();
 		for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature.values())
@@ -1520,8 +1519,8 @@ public class Main
 				goldStandardOpinions.remove(s);
 			}
 
-			double precision = truePositives / (extractedOpinions.size() + correct.size());
-			double recall = truePositives / (goldStandardOpinions.size() + correct.size());
+			double precision = truePositives / (Math.max(extractedOpinions.size() + correct.size(), 1));
+			double recall = truePositives / (Math.max(goldStandardOpinions.size() + correct.size(), 1));
 			double fscore = 2 * ((precision * recall) / (Math.max(1, precision + recall)));
 
 			System.out.println(article.getDocumentName() + "\t" + precision + "\t" + recall + "\t" + fscore);
