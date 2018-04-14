@@ -37,13 +37,13 @@ public class Main
 	public static final String SENTENCES_MODEL_FILE = TOPTUR_DATA_FOLDER + "liblinear_models/sentences.model";
 	public static final String SENTENCES_TEST_FILE = TOPTUR_DATA_FOLDER + "sentences_test.vector";
 
-	public static final String AGENT_TRAINING_FILE = "agent_train.vector";
-	public static final String AGENT_MODEL_FILE = "agent.model";
-	public static final String AGENT_TEST_FILE = "agent_test.vector";
+	public static final String AGENT_TRAINING_FILE = TOPTUR_DATA_FOLDER + "agent_train.vector";
+	public static final String AGENT_MODEL_FILE = TOPTUR_DATA_FOLDER + "liblinear_models/agent.model";
+	public static final String AGENT_TEST_FILE = TOPTUR_DATA_FOLDER + "agent_test.vector";
 
-	public static final String TARGET_TRAINING_FILE = "target_train.vector";
-	public static final String TARGET_MODEL_FILE = "target.model";
-	public static final String TARGET_TEST_FILE = "target_test.vector";
+	public static final String TARGET_TRAINING_FILE = TOPTUR_DATA_FOLDER + "target_train.vector";
+	public static final String TARGET_MODEL_FILE = TOPTUR_DATA_FOLDER + "liblinear_models/target.model";
+	public static final String TARGET_TEST_FILE = TOPTUR_DATA_FOLDER + "target_test.vector";
 
 	public static final String OPINION_TRAINING_FILE = TOPTUR_DATA_FOLDER + "opinion_train.vector";
 	public static final String OPINION_TEST_FILE = TOPTUR_DATA_FOLDER + "opinion_test.vector";
@@ -53,8 +53,7 @@ public class Main
 	public static final String SENTIMENT_TEST_FILE = TOPTUR_DATA_FOLDER + "sentiment_test.vector";
 	public static final String SENTIMENT_MODEL_FILE = TOPTUR_DATA_FOLDER + "liblinear_models/sentiment.model";
 
-	public static final String LIB_LINEAR_FEATURE_MANAGER_FILE = TOPTUR_DATA_FOLDER
-			+ "/lib_linear_feature_manager.json";
+	public static final String LIB_LINEAR_FEATURE_MANAGER_FILE = TOPTUR_DATA_FOLDER + "lib_linear_feature_manager.json";
 	public static final String SENTI_WORD_NET_FILE = "sentiwordnet.txt";
 	public static final String RELATED_WORDS_FILE = TOPTUR_DATA_FOLDER + "related_words.json";
 
@@ -107,8 +106,8 @@ public class Main
 			ArrayList<NewsArticle> devArticles = getAllDocsFrom(DEV_DOCS);
 
 			// Train to detect opinionated sentences
-			// createSentencesVectorFile(devArticles, SENTENCES_TRAINING_FILE);
-			// trainLibLinear(SENTENCES_TRAINING_FILE, SENTENCES_MODEL_FILE);
+			createSentencesVectorFile(devArticles, SENTENCES_TRAINING_FILE);
+			trainLibLinear(SENTENCES_TRAINING_FILE, SENTENCES_MODEL_FILE);
 
 			// Train to detect opinion agents
 			createTrainVectorFileAgent(devArticles, AGENT_TRAINING_FILE);
@@ -119,12 +118,12 @@ public class Main
 			trainLibLinear(TARGET_TRAINING_FILE, TARGET_MODEL_FILE);
 
 			// Train to detect opinions in the sentence
-			// createOpinionVectorFile(devArticles, OPINION_TRAINING_FILE);
-			// trainLibLinear(OPINION_TRAINING_FILE, OPINION_MODEL_FILE);
+			createOpinionVectorFile(devArticles, OPINION_TRAINING_FILE);
+			trainLibLinear(OPINION_TRAINING_FILE, OPINION_MODEL_FILE);
 
 			// Train to determine polarity of a given sentence
-			// createPolarityVectorFile(devArticles, SENTIMENT_TRAINING_FILE);
-			// trainLibLinear(SENTIMENT_TRAINING_FILE, SENTIMENT_MODEL_FILE);
+			createPolarityVectorFile(devArticles, SENTIMENT_TRAINING_FILE);
+			trainLibLinear(SENTIMENT_TRAINING_FILE, SENTIMENT_MODEL_FILE);
 
 			LibLinearFeatureManager.saveInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
@@ -149,17 +148,17 @@ public class Main
 
 			ArrayList<NewsArticle> testArticles = getAllDocsFrom(TEST_DOCS);
 
-//			createSentencesVectorFile(testArticles, SENTENCES_TEST_FILE);
-//			createTrainVectorFileAgent(testArticles, AGENT_TEST_FILE);
-//			createTrainVectorFileTarget(testArticles, TARGET_TEST_FILE);
-//			createOpinionVectorFile(testArticles, OPINION_TEST_FILE);
-//			createPolarityVectorFile(testArticles, SENTIMENT_TEST_FILE);
+			createSentencesVectorFile(testArticles, SENTENCES_TEST_FILE);
+			createTrainVectorFileAgent(testArticles, AGENT_TEST_FILE);
+			createTrainVectorFileTarget(testArticles, TARGET_TEST_FILE);
+			createOpinionVectorFile(testArticles, OPINION_TEST_FILE);
+			createPolarityVectorFile(testArticles, SENTIMENT_TEST_FILE);
 
-			// testLibLinear(SENTENCES_TEST_FILE, SENTENCES_MODEL_FILE, "/dev/null");
-			// testLibLinear(AGENT_TEST_FILE, AGENT_MODEL_FILE, "/dev/null");
-			// testLibLinear(TARGET_TEST_FILE, TARGET_MODEL_FILE, "/dev/null");
-			// testLibLinear(OPINION_TEST_FILE, OPINION_MODEL_FILE, "/dev/null");
-			// testLibLinear(SENTIMENT_TEST_FILE, SENTIMENT_MODEL_FILE, "/dev/null");
+			testLibLinear(SENTENCES_TEST_FILE, SENTENCES_MODEL_FILE, "/dev/null");
+			testLibLinear(AGENT_TEST_FILE, AGENT_MODEL_FILE, "/dev/null");
+			testLibLinear(TARGET_TEST_FILE, TARGET_MODEL_FILE, "/dev/null");
+			testLibLinear(OPINION_TEST_FILE, OPINION_MODEL_FILE, "/dev/null");
+			testLibLinear(SENTIMENT_TEST_FILE, SENTIMENT_MODEL_FILE, "/dev/null");
 
 			// Extract the opinions
 			// Let's time how long it takes
@@ -557,88 +556,155 @@ public class Main
 					featureVector.put(id, id + ":1");
 				}
 				break;
-//			case PREVIOUS_UNIGRAM:
-//				String previous;
-//
-//				if (word.equals(W_WORD))
-//					previous = W_PREV;
-//				else if (word.equals(NULL_WORD))
-//					previous = NULL_PREV;
-//				else if (word.equals(IMP_WORD))
-//					previous = IMP_PREV;
-//				else if (index > 0)
-//					previous = words.get(index-1);
-//				else
-//					previous = PHI_WORD;
-//
-//				id = manager.getIdFor(feature, previous);
-//				featureVector.put(id, id + ":1");
-//				break;
-//			case THIS_UNIGRAM:
-//				id = manager.getIdFor(feature, word);
-//				featureVector.put(id, id + ":1");
-//				break;
-//			case NEXT_UNIGRAM:
-//				String next;
-//
-//				if (word.equals(W_WORD))
-//					next = W_NEXT;
-//				else if (word.equals(NULL_WORD))
-//					next = NULL_NEXT;
-//				else if (word.equals(IMP_WORD))
-//					next = IMP_NEXT;
-//				else if (index < wordPos.size() - 1)
-//					next = words.get(index+1);
-//				else
-//					next = OMEGA_WORD;
-//
-//				id = manager.getIdFor(feature, next);
-//				featureVector.put(id, id + ":1");
-//				break;
-//			case PREVIOUS_PART_OF_SPEECH:
-//				String previousPos;
-//
-//				if (word.equals(W_WORD))
-//					previousPos = W_POS_PREV;
-//				else if (word.equals(NULL_WORD))
-//					previousPos = NULL_POS_PREV;
-//				else if (word.equals(IMP_WORD))
-//					previousPos = IMP_POS_PREV;
-//				else if (index > 0)
-//					previousPos = wordPos.get(index-1).getSecond();
-//				else
-//					previousPos = PHI_POS;
-//
-//				id = manager.getIdFor(feature, previousPos);
-//				featureVector.put(id, id + ":1");
-//				break;
-//			case THIS_PART_OF_SPEECH:
-//				id = manager.getIdFor(feature, pos);
-//				featureVector.put(id, id + ":1");
-//				break;
-//			case NEXT_PART_OF_SPEECH:
-//				String nextPos;
-//
-//				if (word.equals(W_WORD))
-//					nextPos = W_POS_NEXT;
-//				else if (word.equals(NULL_WORD))
-//					nextPos = NULL_POS_NEXT;
-//				else if (word.equals(IMP_WORD))
-//					nextPos = IMP_POS_NEXT;
-//				else if (index < wordPos.size() - 1)
-//					nextPos = wordPos.get(index+1).getSecond();
-//				else
-//					nextPos = OMEGA_POS;
-//
-//				id = manager.getIdFor(feature, nextPos);
-//				featureVector.put(id, id + ":1");
-//				break;
-//			case OBJECTIVITY_OF_WORD:
-//				id = manager.getIdFor(feature, "");
-//				double objectivity = (double) sentiWordNetDictionary.getObjectivityOf(word);
-//				objectivity = objectivity / 100.0;
-//				featureVector.put(id, id + ":" + objectivity);
-//				break;
+			case PREVIOUS_UNIGRAM:
+				String previous;
+
+				if (word.equals(W_WORD))
+					previous = W_PREV;
+				else if (word.equals(NULL_WORD))
+					previous = NULL_PREV;
+				else if (word.equals(IMP_WORD))
+					previous = IMP_PREV;
+				else if (index > 0)
+					previous = words.get(index-1);
+				else
+					previous = PHI_WORD;
+
+				id = manager.getIdFor(feature, previous);
+				featureVector.put(id, id + ":1");
+				break;
+			case THIS_UNIGRAM:
+				id = manager.getIdFor(feature, word);
+				featureVector.put(id, id + ":1");
+				break;
+			case NEXT_UNIGRAM:
+				String next;
+
+				if (word.equals(W_WORD))
+					next = W_NEXT;
+				else if (word.equals(NULL_WORD))
+					next = NULL_NEXT;
+				else if (word.equals(IMP_WORD))
+					next = IMP_NEXT;
+				else if (index < wordPos.size() - 1)
+					next = words.get(index+1);
+				else
+					next = OMEGA_WORD;
+
+				id = manager.getIdFor(feature, next);
+				featureVector.put(id, id + ":1");
+				break;
+			case PREVIOUS_PART_OF_SPEECH:
+				String previousPos;
+
+				if (word.equals(W_WORD))
+					previousPos = W_POS_PREV;
+				else if (word.equals(NULL_WORD))
+					previousPos = NULL_POS_PREV;
+				else if (word.equals(IMP_WORD))
+					previousPos = IMP_POS_PREV;
+				else if (index > 0)
+					previousPos = wordPos.get(index-1).getSecond();
+				else
+					previousPos = PHI_POS;
+
+				id = manager.getIdFor(feature, previousPos);
+				featureVector.put(id, id + ":1");
+				break;
+			case THIS_PART_OF_SPEECH:
+				id = manager.getIdFor(feature, pos);
+				featureVector.put(id, id + ":1");
+				break;
+			case NEXT_PART_OF_SPEECH:
+				String nextPos;
+
+				if (word.equals(W_WORD))
+					nextPos = W_POS_NEXT;
+				else if (word.equals(NULL_WORD))
+					nextPos = NULL_POS_NEXT;
+				else if (word.equals(IMP_WORD))
+					nextPos = IMP_POS_NEXT;
+				else if (index < wordPos.size() - 1)
+					nextPos = wordPos.get(index+1).getSecond();
+				else
+					nextPos = OMEGA_POS;
+
+				id = manager.getIdFor(feature, nextPos);
+				featureVector.put(id, id + ":1");
+				break;
+			case OBJECTIVITY_OF_WORD:
+				id = manager.getIdFor(feature, "");
+				double objectivity = (double) sentiWordNetDictionary.getObjectivityOf(word);
+				objectivity = objectivity / 100.0;
+				featureVector.put(id, id + ":" + objectivity);
+				break;
+			case POS_DISTRIBUTION:
+				ArrayList<Sentence> sentences = (ArrayList<Sentence>) new Document(opinion.sentence).sentences();
+				HashMap<String, Double> posFreq = new HashMap<String, Double>();
+				int total = 0;
+				for(Sentence s: sentences)
+				{
+					for (int i = 0; i < s.length(); i++)
+					{
+						String posTag = s.posTag(i);
+						if(posFreq.containsKey(posTag))
+						{
+							posFreq.put(posTag, posFreq.get(posTag) + 1);
+						}
+						else
+						{
+							posFreq.put(posTag, 1.0);
+						}
+						total++;
+					}
+				}
+				
+				for(String key: posFreq.keySet()) {
+					double freq = posFreq.get(key) / total;
+					id = manager.getIdFor(feature, key);
+					featureVector.put(id, id + ":" + freq);
+				}
+				break;
+			case IS_ENTITY:
+				ArrayList<Sentence> sentences2 = (ArrayList<Sentence>) new Document(opinion.sentence).sentences();
+				String ner = "";
+				for(Sentence s: sentences2)
+				{
+					for(int i = 0; i < s.length(); i++)
+					{
+						if(s.word(i).equals(words.get(index)))
+						{
+							ner = s.nerTag(i);
+						}
+					}
+				}
+				id = manager.getIdFor(feature, ner);
+				featureVector.put(id, id + ":1");
+				break;
+			case NUM_ENTITIES:
+				ArrayList<Sentence> sentences3 = (ArrayList<Sentence>) new Document(opinion.sentence).sentences();
+				int nerCount = 0;
+				for(Sentence s: sentences3)
+				{
+					for(int i = 0; i < s.length(); i++)
+					{
+						if(!s.nerTag(i).equals("O"))
+						{
+							nerCount++;
+						}
+					}
+				}
+				id = manager.getIdFor(feature, "");
+				featureVector.put(id, id + ":" + nerCount);
+				break;
+			case LEN_SENT:
+				id = manager.getIdFor(feature, "");
+				featureVector.put(id, id + ":" + opinion.sentence.split("\\s+").length);
+				break;
+			case LEN_OP:
+				id = manager.getIdFor(feature, "");
+				featureVector.put(id, id + ":" + wordPos.size());
+				break;
 			}
 
 		}
@@ -1291,9 +1357,9 @@ public class Main
 		try
 		{
 			Process p = Runtime.getRuntime()
-					.exec("./liblinear_train -v 5 -B 1 -s 6 " + vectorFileName + " " + modelFileName);
-			//p.waitFor();
-			Thread.sleep(10000); // Because sometimes liblinear doesn't print out to the
+					.exec("./liblinear_train -B 1 -s 6 " + vectorFileName + " " + modelFileName);
+			p.waitFor();
+			// Because sometimes liblinear doesn't print out to the
 			// model file in time
 		} catch (IOException e)
 		{
@@ -1643,7 +1709,6 @@ public class Main
 				{
 					result += scanner.nextLine();
 				}
-				System.out.println(result);
 
 				String[] tokens = result.split("\\s+");
 
@@ -1807,6 +1872,17 @@ public class Main
 					classifier_result = "implicit";
 				else
 					classifier_result = max_word;
+				
+//				if (!classifier_result.equals("null"))
+//				{
+//					String samples2 = "";
+//					samples2 += "\n\nSentence: " + goldStandard.sentence;
+//					samples2 += "\nOpinion: " + goldStandard.opinion;
+//					samples2 += "\nAgent: " + goldStandard.agent;
+//					samples2 += "\nPredicted Agent: " + classifier_result;
+//					samples2 += "\nConfidences:\n" + confidences.toString();
+//					System.out.println(samples2);
+//				}
 
 				if (!agent.equals("null"))
 				{
@@ -1825,7 +1901,7 @@ public class Main
 					correctLabel += 1.0;
 				}
 
-				if (rand.nextDouble() < 0.1)
+				if (rand.nextDouble() < 0.07)
 				{
 					samples += "\n\nSentence: " + goldStandard.sentence;
 					samples += "\nOpinion: " + goldStandard.opinion;
@@ -1848,7 +1924,7 @@ public class Main
 		System.out.println("AGENT TOTAL RECALL: " + totalRecall);
 		System.out.println("AGENT TOTAL FSCORE: " + totalFScore);
 		System.out.println("\nSamples: ");
-		System.out.println(samples);
+		System.out.println(samples + "\n");
 	}
 
 	/**
@@ -1922,7 +1998,7 @@ public class Main
 					correctLabel += 1.0;
 				}
 
-				if (rand.nextDouble() < 0.1)
+				if (rand.nextDouble() < 0.07)
 				{
 					samples += "\n\nSentence: " + goldStandard.sentence;
 					samples += "\nOpinion: " + goldStandard.opinion;
@@ -1946,7 +2022,7 @@ public class Main
 		System.out.println("TARGET TOTAL RECALL: " + totalRecall);
 		System.out.println("TARGET TOTAL FSCORE: " + totalFScore);
 		System.out.println("\nSamples: ");
-		System.out.println(samples);
+		System.out.println(samples + "\n");
 	}
 
 	////////////////////
