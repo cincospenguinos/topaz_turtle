@@ -20,7 +20,11 @@ public class LibLinearFeatureManager {
         PREVIOUS_UNIGRAM, THIS_UNIGRAM, NEXT_UNIGRAM, PREVIOUS_PART_OF_SPEECH, THIS_PART_OF_SPEECH, NEXT_PART_OF_SPEECH, OBJECTIVITY_OF_WORD,
 
         // These are for anything at all
-        BAGGED_TREE_VOTER
+        BAGGED_TREE_VOTER,
+        // These are for extracting the actual opinion words and targets and agents
+        BAG_OF_WORDS,
+
+        POS_DISTRIBUTION, IS_ENTITY, NUM_ENTITIES, LEN_SENT, LEN_OP
     }
 
     private static volatile LibLinearFeatureManager instance;
