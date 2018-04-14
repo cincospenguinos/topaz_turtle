@@ -204,7 +204,7 @@ public class Main
 
 			// Evaluate everything
 			for (NewsArticle a : testArticles) {
-				extractOpinionFramesFor(a, sentenceClassifier, opinionClassifier);
+				extractOpinionFramesFor(a, sentenceClassifier, opinionClassifier, polarityClassifier);
 			}
 
 			evaluateExtractedOpinions(testArticles, evalOptions);
@@ -262,7 +262,7 @@ public class Main
 				if (file.exists())
 				{
 					NewsArticle article = new NewsArticle(file);
-					extractOpinionFramesFor(article, sentenceClassifier, opinionClassifier); // TODO: Add polarity classifier
+					extractOpinionFramesFor(article, sentenceClassifier, opinionClassifier, polarityClassifier);
 					System.out.println(article);
 				} else
 				{
@@ -887,19 +887,23 @@ public class Main
 							break;
 					}
 				}
+
+				vectorLineBuilder.append(o.sentimentId());
+
+				for (Map.Entry<Integer, Object> e : libLinearFeatureVector.entrySet())
+				{
+					vectorLineBuilder.append(" ");
+					vectorLineBuilder.append(e.getKey());
+					vectorLineBuilder.append(":");
+
+					if (e.getValue() instanceof Boolean)
+						vectorLineBuilder.append(1);
+					else
+						vectorLineBuilder.append(e.getValue());
+				}
+
+				vectorLineBuilder.append("\n");
 			}
-		}
-
-		for (Map.Entry<Integer, Object> e : libLinearFeatureVector.entrySet())
-		{
-			vectorLineBuilder.append(" ");
-			vectorLineBuilder.append(e.getKey());
-			vectorLineBuilder.append(":");
-
-			if (e.getValue() instanceof Boolean)
-				vectorLineBuilder.append(1);
-			else
-				vectorLineBuilder.append(e.getValue());
 		}
 
 		try
@@ -1087,7 +1091,7 @@ public class Main
 	 *
 	 * @param a -
 	 */
-	private static void extractOpinionFramesFor(NewsArticle a, BaggedTrees<Sentence, Boolean> sentenceClassifier, BaggedTrees<String, Integer> opinionClassifier) {
+	private static void extractOpinionFramesFor(NewsArticle a, BaggedTrees<Sentence, Boolean> sentenceClassifier, BaggedTrees<String, Integer> opinionClassifier, BaggedTrees<String, Integer> polarityClassifier) {
 		Document document = new Document(a.getFullText());
 
 		for (Sentence s : document.sentences()) {
@@ -1096,6 +1100,7 @@ public class Main
 					Opinion o = new Opinion();
 					o.opinion = expression;
 					o.sentence = s.toString();
+					o.sentiment = extractPolarityOfSentence(s, polarityClassifier);
 
 					// TODO: Add polarity classifier
 					a.addExtractedOpinion(o);
@@ -1304,6 +1309,164 @@ public class Main
 		return list;
 	}
 
+
+	/**
+	 * Extracts polarity of a given sentence
+	 *
+	 * @param sentence
+	 *            -
+	 * @return String
+	 */
+	private static String extractPolarityOfSentence(Sentence sentence, BaggedTrees<String, Integer> classifier)
+	{
+		StringBuilder vectorFileBuilder = new StringBuilder();
+		LibLinearFeatureManager manager = LibLinearFeatureManager.getInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
+
+		String vectorFileName = ".polarity_tmp.vector";
+
+		vectorFileBuilder.append(0);
+		vectorFileBuilder.append(' ');
+
+		List<String> words = sentence.words();
+		List<String> partsOfSpeech = sentence.posTags();
+
+		TreeMap<Integer, Object> libLinearFeatureVector = new TreeMap<Integer, Object>();
+		for (LibLinearFeatureManager.LibLinearFeature feature : LibLinearFeatureManager.LibLinearFeature.values())
+		{
+			int id;
+
+			switch (feature)
+			{
+				case CONTAINS_UNIGRAM:
+					for (String w : words)
+					{
+						id = manager.getIdFor(feature, w);
+						libLinearFeatureVector.put(id, true);
+					}
+					break;
+				case CONTAINS_BIGRAM:
+					String bigram;
+
+					for (int i = 0; i < words.size() + 1; i++)
+					{
+						if (i == 0)
+						{
+							bigram = PHI_WORD + " " + words.get(i);
+						} else if (i == words.size())
+						{
+							bigram = words.get(i - 1) + " " + OMEGA_WORD;
+						} else
+						{
+							bigram = words.get(i - 1) + " " + words.get(i);
+						}
+
+						id = manager.getIdFor(feature, bigram);
+						libLinearFeatureVector.put(id, true);
+					}
+
+					break;
+				case OBJECTIVITY_OF_SENTENCE:
+					id = manager.getIdFor(feature, "");
+					int objectivity = 0;
+
+					for (String w : words)
+					{
+						objectivity += sentiWordNetDictionary.getObjectivityOf(w);
+					}
+
+					objectivity /= words.size();
+					libLinearFeatureVector.put(id, objectivity);
+
+					break;
+
+				case OBJECTIVITY_OF_RELATED_WORD:
+					for (String w : words) {
+						if (!relatedWordsMap.containsKey(w.toLowerCase())) {
+							relatedWordsMap.put(w.toLowerCase(), getWordsRelatedTo(w.toLowerCase()));
+						}
+
+						for (String relatedWord : relatedWordsMap.get(w.toLowerCase())) {
+							id = manager.getIdFor(LibLinearFeatureManager.LibLinearFeature.HAS_WORD_RELATED_TO_OTHER_WORD, relatedWord);
+							libLinearFeatureVector.put(id, true);
+
+							objectivity = sentiWordNetDictionary.getObjectivityOf(relatedWord);
+							id = manager.getIdFor(LibLinearFeatureManager.LibLinearFeature.OBJECTIVITY_OF_RELATED_WORD, "");
+							libLinearFeatureVector.put(id, objectivity);
+						}
+					}
+					break;
+				case HAS_NAMED_ENTITY:
+					for (String entity : sentence.nerTags()) {
+						id = manager.getIdFor(feature, entity);
+						libLinearFeatureVector.put(id, true);
+					}
+					break;
+				case BAGGED_TREE_VOTER:
+					Opinion o = new Opinion();
+					o.sentence = sentence.toString();
+					o.sentiment = "both";
+					Opinion[] opinions = new Opinion[] {o};
+
+					NewsArticle tmpArticle = new NewsArticle("", sentence.toString(), opinions);
+					ArrayList<NewsArticle> tmp = new ArrayList<NewsArticle>();
+					tmp.add(tmpArticle);
+					LearnerExample<String, Integer> example = getPolarityExamples(tmp).get(0);
+					List<Integer> guesses = classifier.allGuessesFor(example);
+
+					for (int i = 0; i < guesses.size(); i++) {
+						id = manager.getIdFor(feature, Integer.toString(i)); // NOTE: I got a weird exception here so I'm trying to throw Strings at it instead of integers
+						int g = guesses.get(i);
+						libLinearFeatureVector.put(id, g);
+					}
+					break;
+			}
+		}
+
+		for (Map.Entry<Integer, Object> e : libLinearFeatureVector.entrySet())
+		{
+			vectorFileBuilder.append(" ");
+			vectorFileBuilder.append(e.getKey());
+			vectorFileBuilder.append(":");
+
+			if (e.getValue() instanceof Boolean)
+				vectorFileBuilder.append(1);
+			else
+				vectorFileBuilder.append(e.getValue());
+		}
+
+		vectorFileBuilder.append('\n');
+
+		try
+		{
+			PrintWriter vectorFile = new PrintWriter(vectorFileName);
+			vectorFile.print(vectorFileBuilder.toString());
+			vectorFile.flush();
+			vectorFile.close();
+		} catch (FileNotFoundException e)
+		{
+			e.printStackTrace();
+		}
+
+		try
+		{
+			Process p = Runtime.getRuntime()
+					.exec("./liblinear_predict " + vectorFileName + " " + POLARITY_LIB_LINEAR_MODEL_FILE + " herp.txt");
+			p.waitFor();
+			Scanner s = new Scanner(new File("herp.txt"));
+			int id = Integer.parseInt(s.next());
+			s.close();
+
+			return Opinion.fromSentimentId(id);
+		} catch (IOException e)
+		{
+			e.printStackTrace();
+		} catch (InterruptedException e)
+		{
+			e.printStackTrace();
+		}
+
+		return null;
+	}
 	/**
 	 * Evaluates the extracted opinions, given whatever evaluation options desired.
 	 *

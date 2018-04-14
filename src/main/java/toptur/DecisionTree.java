@@ -65,6 +65,10 @@ public class DecisionTree<E, L> {
             child = children.get(featureValue.toString());
         }
 
+        if (child == null) { // If child is STILL null, then just pick the first child
+            child = children.get(children.keySet().toArray()[0]);
+        }
+
         return child.guessFor(example);
     }
 
