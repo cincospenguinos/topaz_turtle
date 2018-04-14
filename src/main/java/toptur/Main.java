@@ -27,7 +27,7 @@ public class Main
 {
 
 	//////////////////////
-	//    VARIABLES     //
+	// VARIABLES //
 	//////////////////////
 
 	public static final String TOPTUR_DATA_FOLDER = ".toptur_data/";
@@ -35,6 +35,16 @@ public class Main
 	public static final String DEV_DOCS = "dataset/dev";
 	public static final String TEST_DOCS = "dataset/test";
 	public static final String ORIGINAL_DOCS = "dataset/original_dataset/docs";
+
+	public static final String AGENT_TRAINING_FILE = TOPTUR_DATA_FOLDER + "agent_train.vector";
+	public static final String AGENT_MODEL_FILE = TOPTUR_DATA_FOLDER + "liblinear_models/agent.model";
+	public static final String AGENT_TEST_FILE = TOPTUR_DATA_FOLDER + "agent_test.vector";
+
+	public static final String TARGET_TRAINING_FILE = TOPTUR_DATA_FOLDER + "target_train.vector";
+	public static final String TARGET_MODEL_FILE = TOPTUR_DATA_FOLDER + "liblinear_models/target.model";
+	public static final String TARGET_TEST_FILE = TOPTUR_DATA_FOLDER + "target_test.vector";
+
+	public static final String LIB_LINEAR_FEATURE_MANAGER_FILE = TOPTUR_DATA_FOLDER + "lib_linear_feature_manager.json";
 
 	public static final String SENTI_WORD_NET_FILE = "sentiwordnet.txt";
 	public static final String RELATED_WORDS_FILE = TOPTUR_DATA_FOLDER + "related_words.json";
@@ -62,6 +72,27 @@ public class Main
 	// TODO: Set these to something that gives at least decent performance. I'm keeping them low to fix any potential bugs we have
 	private static int NUMBER_OF_TREES = 2;
 	private static int DEPTH_OF_TREES = 1;
+
+	private static final String W_WORD = "__W_WORD__";
+	private static final String W_PREV = "__W_PREV__";
+	private static final String W_NEXT = "__W_NEXT__";
+	private static final String W_POS = "__W_POS__";
+	private static final String W_POS_PREV = "__W_POS_PREV__";
+	private static final String W_POS_NEXT = "__W_POS_NEXT__";
+
+	private static final String NULL_WORD = "__NULL_WORD__";
+	private static final String NULL_PREV = "__NULL_PREV__";
+	private static final String NULL_NEXT = "__NULL_NEXT__";
+	private static final String NULL_POS = "__NULL_POS__";
+	private static final String NULL_POS_PREV = "__NULL_POS_PREV__";
+	private static final String NULL_POS_NEXT = "__NULL_POS_NEXT__";
+
+	private static final String IMP_WORD = "__IMP_WORD__";
+	private static final String IMP_PREV = "__IMP_PREV__";
+	private static final String IMP_NEXT = "__IMP_NEXT__";
+	private static final String IMP_POS = "__IMP_POS__";
+	private static final String IMP_POS_PREV = "__IMP_POS_PREV__";
+	private static final String IMP_POS_NEXT = "__IMP_POS_NEXT__";
 
 	//////////////////////
 	//       MAIN       //
@@ -205,6 +236,30 @@ public class Main
 			// Evaluate everything
 			for (NewsArticle a : testArticles) {
 				extractOpinionFramesFor(a, sentenceClassifier, opinionClassifier, polarityClassifier);
+        
+			createTrainVectorFileAgent(testArticles, AGENT_TEST_FILE);
+			createTrainVectorFileTarget(testArticles, TARGET_TEST_FILE);
+
+			testLibLinear(AGENT_TEST_FILE, AGENT_MODEL_FILE, "/dev/null");
+			testLibLinear(TARGET_TEST_FILE, TARGET_MODEL_FILE, "/dev/null");
+
+			// Extract the opinions
+			// Let's time how long it takes
+
+			if (evalOptions.size() == 1 && evalOptions.contains(EvaluationOption.TARGET))
+				evaluateTargetClassifier(testArticles);
+			else if (evalOptions.size() == 1 && evalOptions.contains(EvaluationOption.AGENT))
+				evaluateAgentClassifier(testArticles);
+			else
+			{
+				System.out.println("Starting extraction...");
+				long startTime = System.currentTimeMillis();
+				for (NewsArticle a : testArticles)
+					extractOpinionFramesForArticle(a);
+				long endTime = System.currentTimeMillis();
+
+				System.out.println(((double) endTime - startTime) / 1000.0 + " seconds");
+				evaluateExtractedOpinions(testArticles, evalOptions);
 			}
 
 			evaluateExtractedOpinions(testArticles, evalOptions);
@@ -272,23 +327,66 @@ public class Main
 		} else if (task.equals("explore"))
 		{
 			ArrayList<NewsArticle> devArticles = getAllDocsFrom(DEV_DOCS);
+			ArrayList<NewsArticle> testArticles = getAllDocsFrom(TEST_DOCS);
+			devArticles.addAll(testArticles);
+			
+			String test = "testimony of the confidence and high esteem";
+			
+			for (int i = 0; i < 7; i++)
+			{
+				System.out.println(getText(test, i));
+				System.out.println(getPos(test, i));
+			}
+
+			int numOpinion = 0;
+			int numW = 0;
+			int numImp = 0;
+			int numNull = 0;
+			int numWord = 0;
+			int numTW = 0;
+			int numTNull = 0;
+			int numTWord = 0;
 
 			for (NewsArticle article : devArticles)
 			{
 				HashMap<String, Opinion> gold = article.getGoldStandardOpinions();
 				for (String key : gold.keySet())
 				{
-					if (gold.get(key).agent != null && !gold.get(key).agent.equals("w"))
+					numOpinion++;
+					if (gold.get(key).agent == null)
 					{
-						System.out.println("Sentence: " + gold.get(key).sentence);
-						System.out.println("Opinion: " + gold.get(key).opinion);
-						System.out.println("Agent: " + gold.get(key).agent);
-						System.out.println("Target: " + gold.get(key).target);
-						System.out.println("Sentiment: " + gold.get(key).sentiment);
-						System.out.println();
+						numNull++;
+					} else if (gold.get(key).agent.equals("w"))
+					{
+						numW++;
+					} else if (gold.get(key).agent.equals("implicit"))
+					{
+						numImp++;
+					} else
+					{
+						numWord++;
+					}
+
+					if (gold.get(key).target == null)
+					{
+						numTNull++;
+					} else if (gold.get(key).target.equals("w"))
+					{
+						numTW++;
+					} else
+					{
+						numTWord++;
 					}
 				}
 			}
+			System.out.println("Number of Opinions: " + numOpinion + "\n");
+			System.out.println("Number of Null Agents: " + numNull + "\n");
+			System.out.println("Number of W Agents: " + numW + "\n");
+			System.out.println("Number of Implicit Agents: " + numImp + "\n");
+			System.out.println("Number of Word Agents: " + numWord + "\n");
+			System.out.println("Number of Null Targets: " + numTNull + "\n");
+			System.out.println("Number of W Targets: " + numTW + "\n");
+			System.out.println("Number of Word Targets: " + numTWord + "\n");
 		} else
 		{
 			System.err.println("No valid task provided");
@@ -305,7 +403,8 @@ public class Main
 	 * 
 	 * Reads gold standard data and populates in NewsArticles.
 	 *
-	 * @param path -
+	 * @param path
+	 *            -
 	 * @return __
 	 */
 	private static ArrayList<NewsArticle> getAllDocsFrom(String path)
@@ -546,8 +645,10 @@ public class Main
 	 *
 	 * This vector file contains features for identifying an opinionated sentence.
 	 *
-	 * @param articles -
-	 * @param nameOfVectorFile -
+	 * @param articles
+	 *            -
+	 * @param nameOfVectorFile
+	 *            -
 	 */
 	private static void createSentencesVectorFile(List<NewsArticle> articles, String nameOfVectorFile, BaggedTrees<Sentence, Boolean> classifier) {
 		StringBuilder vectorFileBuilder = new StringBuilder();
@@ -639,6 +740,7 @@ public class Main
 
 					for (int i = 0; i < sentence.words().size(); i++)
 					{
+
 						String word = sentence.word(i);
 
 						if (firstExpressionWord.equals(word))
@@ -1041,16 +1143,22 @@ public class Main
 	// TRAIN CLASSIFIERS //
 	///////////////////////
 
-	private static void trainLibLinear(String vectorFileName, String modelFileName) {
+
+	private static void trainLibLinear(String vectorFileName, String modelFileName)
+	{
 		// Now that the vector file is put together, we need to run liblinear
 		try
 		{
-			Process p = Runtime.getRuntime().exec("./liblinear_train " + vectorFileName + " " + modelFileName);
+			Process p = Runtime.getRuntime()
+					.exec("./liblinear_train -B 1 -s 6 " + vectorFileName + " " + modelFileName);
 			p.waitFor();
+			// Because sometimes liblinear doesn't print out to the
+			// model file in time
 		} catch (IOException e)
 		{
 			e.printStackTrace();
-		} catch (InterruptedException e) {
+		} catch (InterruptedException e)
+		{
 			e.printStackTrace();
 		}
 	}
@@ -1059,7 +1167,8 @@ public class Main
 	// TEST CLASSIFIERS //
 	//////////////////////
 
-	private static void testLibLinear(String testVectorFileName, String modelFileName, String outputFileName) {
+	private static void testLibLinear(String testVectorFileName, String modelFileName, String outputFileName)
+	{
 		// Now that the vector file is put together, we need to run liblinear
 		try
 		{
@@ -1101,6 +1210,8 @@ public class Main
 					o.opinion = expression;
 					o.sentence = s.toString();
 					o.sentiment = extractPolarityOfSentence(s, polarityClassifier);
+          
+          // TODO: Extract target/agent here
 
 					a.addExtractedOpinion(o);
 				}
@@ -1387,7 +1498,6 @@ public class Main
 						for (String relatedWord : relatedWordsMap.get(w.toLowerCase())) {
 							id = manager.getIdFor(LibLinearFeatureManager.LibLinearFeature.HAS_WORD_RELATED_TO_OTHER_WORD, relatedWord);
 							libLinearFeatureVector.put(id, true);
-
 							objectivity = sentiWordNetDictionary.getObjectivityOf(relatedWord);
 							id = manager.getIdFor(LibLinearFeatureManager.LibLinearFeature.OBJECTIVITY_OF_RELATED_WORD, "");
 							libLinearFeatureVector.put(id, objectivity);
@@ -1535,11 +1645,224 @@ public class Main
 		System.out.println("\nTOTAL FSCORE: " + totalFScore / articles.size());
 	}
 
+
+	/**
+	 * Returns precision, recall, and Fscore in that order.
+	 *
+	 * @param articles
+	 */
+	private static void evaluateAgentClassifier(List<NewsArticle> articles)
+	{
+		System.out.println("\nReport: ");
+
+		double totalOpinions = 0.0;
+		double correctLabel = 0.0; // Correct label agent or null
+		double nonNullLabels = 0.0; // How Many Agent Labels
+		double nonNullCorrect = 0.0; // Correct Agent Label
+
+		Random rand = new Random();
+
+		String samples = "";
+
+		for (NewsArticle article : articles)
+		{
+			HashMap<String, Opinion> goldStandardOpinions = (HashMap<String, Opinion>) article.getGoldStandardOpinions()
+					.clone();
+			for (Opinion goldStandard : goldStandardOpinions.values())
+			{
+				String agent;
+				if (goldStandard.agent == null)
+				{
+					agent = "null";
+					totalOpinions += 1;
+				} else
+				{
+					agent = goldStandard.agent;
+					totalOpinions += 1;
+					nonNullLabels += 1;
+				}
+
+				HashMap<String, Double> confidences = extractAgentFrom(goldStandard);
+
+				double max = confidences.get(NULL_WORD);
+				String max_word = NULL_WORD;
+				for (String word : confidences.keySet())
+				{
+					if (confidences.get(word) > max)
+					{
+						max = confidences.get(word);
+						max_word = word;
+					}
+				}
+
+				String classifier_result;
+				if (max_word.equals(W_WORD))
+					classifier_result = "w";
+				else if (max_word.equals(NULL_WORD))
+					classifier_result = "null";
+				else if (max_word.equals(IMP_WORD))
+					classifier_result = "implicit";
+				else
+					classifier_result = max_word;
+				
+//				if (!classifier_result.equals("null"))
+//				{
+//					String samples2 = "";
+//					samples2 += "\n\nSentence: " + goldStandard.sentence;
+//					samples2 += "\nOpinion: " + goldStandard.opinion;
+//					samples2 += "\nAgent: " + goldStandard.agent;
+//					samples2 += "\nPredicted Agent: " + classifier_result;
+//					samples2 += "\nConfidences:\n" + confidences.toString();
+//					System.out.println(samples2);
+//				}
+
+				if (!agent.equals("null"))
+				{
+					if (classifier_result.equals(agent))
+					{
+						correctLabel += 1.0;
+						nonNullCorrect += 1.0;
+						samples += "\n\nCorrectly Identified a non-Null Agent!";
+						samples += "\nOpinion: " + goldStandard.opinion;
+						samples += "\nAgent: " + goldStandard.agent;
+						samples += "\nPredicted Agent: " + classifier_result;
+						samples += "\nConfidences:\n" + confidences.toString();
+					}
+				} else if (classifier_result.equals(agent))
+				{
+					correctLabel += 1.0;
+				}
+
+				if (rand.nextDouble() < 0.07)
+				{
+					samples += "\n\nSentence: " + goldStandard.sentence;
+					samples += "\nOpinion: " + goldStandard.opinion;
+					samples += "\nAgent: " + goldStandard.agent;
+					samples += "\nPredicted Agent: " + classifier_result;
+					samples += "\nConfidences:\n" + confidences.toString();
+				}
+			}
+		}
+
+		double totalPrecision = correctLabel / totalOpinions;
+		double totalRecall = nonNullCorrect / nonNullLabels;
+		double totalFScore = (2 * (totalPrecision * totalRecall)) / (totalPrecision + totalRecall);
+
+		System.out.println("\nTOTAL OPINIONS: " + totalOpinions);
+		System.out.println("TOTAL OPINIONS WITH AGENT: " + nonNullLabels);
+		System.out.println("TOTAL OPINIONS LABELED CORRECTLY: " + correctLabel);
+		System.out.println("TOTAL OPINIONS WITH AGENT LABELED CORRECTLY: " + nonNullCorrect);
+		System.out.println("AGENT TOTAL PRECISION: " + totalPrecision);
+		System.out.println("AGENT TOTAL RECALL: " + totalRecall);
+		System.out.println("AGENT TOTAL FSCORE: " + totalFScore);
+		System.out.println("\nSamples: ");
+		System.out.println(samples + "\n");
+	}
+
+	/**
+	 * Returns precision, recall, and fscore in that order
+	 * 
+	 * @param articles
+	 * @return
+	 */
+	private static void evaluateTargetClassifier(List<NewsArticle> articles)
+	{
+		System.out.println("\nReport: ");
+
+		double totalOpinions = 0.0;
+		double correctLabel = 0.0; // Correct label agent or null
+		double nonNullLabels = 0.0; // How Many Agent Labels
+		double nonNullCorrect = 0.0; // Correct Agent Label
+
+		Random rand = new Random();
+
+		String samples = "";
+
+		for (NewsArticle article : articles)
+		{
+			HashMap<String, Opinion> goldStandardOpinions = (HashMap<String, Opinion>) article.getGoldStandardOpinions()
+					.clone();
+
+			for (Opinion goldStandard : goldStandardOpinions.values())
+			{
+				String target;
+				if (goldStandard.target == null)
+				{
+					target = "null";
+					totalOpinions += 1;
+				} else
+				{
+					target = goldStandard.target;
+					totalOpinions += 1;
+					nonNullLabels += 1;
+				}
+
+				HashMap<String, Double> confidences = extractTargetFrom(goldStandard);
+
+				double max = confidences.get(NULL_WORD);
+				String max_word = NULL_WORD;
+				for (String word : confidences.keySet())
+				{
+					if (confidences.get(word) > max)
+					{
+						max = confidences.get(word);
+						max_word = word;
+					}
+				}
+
+				String classifier_result;
+				if (max_word.equals(W_WORD))
+					classifier_result = "w";
+				else if (max_word.equals(NULL_WORD))
+					classifier_result = "null";
+				else
+					classifier_result = max_word;
+
+				if (!target.equals("null"))
+				{
+					if (classifier_result.equals(target))
+					{
+						correctLabel += 1.0;
+						nonNullCorrect += 1.0;
+					}
+				} else if (classifier_result.equals(target))
+				{
+					correctLabel += 1.0;
+				}
+
+				if (rand.nextDouble() < 0.07)
+				{
+					samples += "\n\nSentence: " + goldStandard.sentence;
+					samples += "\nOpinion: " + goldStandard.opinion;
+					samples += "\nTarget: " + goldStandard.target;
+					samples += "\nPredicted Target: " + classifier_result;
+					samples += "\nConfidences:\n" + confidences.toString();
+				}
+			}
+
+		}
+
+		double totalPrecision = correctLabel / totalOpinions;
+		double totalRecall = nonNullCorrect / nonNullLabels;
+		double totalFScore = (2 * (totalPrecision * totalRecall)) / (totalPrecision + totalRecall);
+
+		System.out.println("\nTOTAL OPINIONS: " + totalOpinions);
+		System.out.println("TOTAL OPINIONS WITH TARGET: " + nonNullLabels);
+		System.out.println("TOTAL OPINIONS LABELED CORRECTLY: " + correctLabel);
+		System.out.println("TOTAL OPINIONS WITH TARGET LABELED CORRECTLY: " + nonNullCorrect);
+		System.out.println("TARGET TOTAL PRECISION: " + totalPrecision);
+		System.out.println("TARGET TOTAL RECALL: " + totalRecall);
+		System.out.println("TARGET TOTAL FSCORE: " + totalFScore);
+		System.out.println("\nSamples: ");
+		System.out.println(samples + "\n");
+	}
+
 	////////////////////
 	// HELPER METHODS //
 	////////////////////
 
-	private static void getSentiWordNet() {
+	private static void getSentiWordNet()
+	{
 		sentiWordNetDictionary = new SentiWordNetDictionary();
 
 		try
@@ -1576,25 +1899,33 @@ public class Main
 		}
 	}
 
-	private static void getRelatedWordsMap() {
+	private static void getRelatedWordsMap()
+	{
 		System.out.println("Gathering related words...");
 		File file = new File(RELATED_WORDS_FILE);
 		Gson gson = new Gson();
 
-		if(file.exists()) {
+		if (file.exists())
+		{
 			StringBuilder builder = new StringBuilder();
 
-			try {
+			try
+			{
 				Scanner s = new Scanner(file);
-				while (s.hasNextLine()) builder.append(s.nextLine());
+				while (s.hasNextLine())
+					builder.append(s.nextLine());
 				s.close();
-			} catch (FileNotFoundException e) {
+			} catch (FileNotFoundException e)
+			{
 				e.printStackTrace();
 
 			}
 
-			relatedWordsMap = gson.fromJson(builder.toString(), new TypeToken<TreeMap<String, String[]>>(){}.getType());
-		} else {
+			relatedWordsMap = gson.fromJson(builder.toString(), new TypeToken<TreeMap<String, String[]>>()
+			{
+			}.getType());
+		} else
+		{
 			System.out.println("Generating new related words file! This is going to take a while...");
 
 			// We need to gather everything and create the file
@@ -1604,12 +1935,16 @@ public class Main
 
 			relatedWordsMap = new TreeMap<String, String[]>();
 
-			for (NewsArticle a : articles) {
+			for (NewsArticle a : articles)
+			{
 				Document d = new Document(a.getFullText());
 
-				for (Sentence s : d.sentences()) {
-					for (String w : s.words()) {
-						if (!relatedWordsMap.containsKey(w.toLowerCase())) {
+				for (Sentence s : d.sentences())
+				{
+					for (String w : s.words())
+					{
+						if (!relatedWordsMap.containsKey(w.toLowerCase()))
+						{
 							relatedWordsMap.put(w.toLowerCase(), getWordsRelatedTo(w.toLowerCase()));
 						}
 					}
@@ -1617,12 +1952,14 @@ public class Main
 			}
 
 			System.out.print("Creating file...");
-			try {
+			try
+			{
 				PrintWriter printWriter = new PrintWriter(file);
 				printWriter.print(gson.toJson(relatedWordsMap));
 				printWriter.flush();
 				printWriter.close();
-			} catch (FileNotFoundException e) {
+			} catch (FileNotFoundException e)
+			{
 				e.printStackTrace();
 			}
 
@@ -1690,14 +2027,103 @@ public class Main
 							throw new RuntimeException("Did not include way to get IDs for " + f);
 					}
 				}
+      }
+    }
+  
+  private static String getPos(String sentence, int index)
+	{
+		ArrayList<Sentence> sentences = (ArrayList<Sentence>) new Document(sentence).sentences();
+		int curr_index = index;
+		for (Sentence s : sentences)
+		{
+			if (curr_index >= s.length())
+			{
+				curr_index -= s.length();
+			} else
+			{
+				return s.posTag(curr_index);
 			}
 		}
+  }
 
 		// TODO: Anything else that needs to be here
+	}
+        
+        private static int[] getOpinionPosition(String sentence, String opinion)
+	{
+		int curr = 0;
+
+		String[] sentence_array = sentence.split("\\s+");
+		String[] opinion_array = opinion.split("\\s+");
+
+		while (curr < sentence_array.length)
+		{
+			if (sentence_array[curr].equals(opinion_array[0]))
+			{
+				for (int i = 1; i < opinion_array.length; i++)
+				{
+					if (!sentence_array[curr + i].equals(opinion_array[i]))
+					{
+						break;
+					}
+				}
+				return new int[]
+				{ curr, curr + opinion_array.length };
+			}
+			curr++;
+		}
+		return new int[]
+		{ 0, 0 };
+	}
+	
+	private static ArrayList<Pair<String, String>> processSentence(String sentence)
+	{
+		ArrayList<Pair<String, String>> wordPos = new ArrayList<Pair<String, String>>();
+		
+		ArrayList<Sentence> sentences = (ArrayList<Sentence>) new Document(sentence).sentences();
+		
+		for (Sentence s: sentences)
+		{
+			for (int i = 0; i < s.length(); i ++)
+			{
+				wordPos.add(new Pair<String, String>(s.word(i), s.posTag(i)));
+			}
+		}
+		return wordPos;
+	}
+
+	private static String getText(String sentence, int index)
+	{
+		ArrayList<Sentence> sentences = (ArrayList<Sentence>) new Document(sentence).sentences();
+		int curr_index = index;
+		for (Sentence s : sentences)
+		{
+			if (curr_index >= s.length())
+			{
+				curr_index -= s.length();
+			} else
+			{
+				return s.word(curr_index);
+			}
+		}
+		return "";
 	}
 
 	public static Set<String> getAllWords() {
 		return allWords;
+  }
+    
+	private static int getSize(String sentence)
+	{
+		Document document = new Document(sentence);
+		int size = 0;
+
+		for (Sentence s : document.sentences())
+		{
+			size += s.length();
+		}
+
+		return size;
 	}
 
 	public static Set<String> getAllPos() {
