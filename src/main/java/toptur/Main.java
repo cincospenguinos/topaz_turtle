@@ -394,44 +394,6 @@ public class Main
 		}
 	}
 
-	/**
-	 * Creates a vector file for the polarity of a given sentence.
-	 *
-	 * @param articles
-	 *            - articles to create file from
-	 * @param vectorFileName
-	 *            - name of the file
-	 */
-	private static void createPolarityVectorFile(List<NewsArticle> articles, String vectorFileName)
-	{
-		StringBuilder vectorFileBuilder = new StringBuilder();
-
-		for (NewsArticle a : articles)
-		{
-			for (Opinion o : a.getGoldStandardOpinions().values())
-			{
-				vectorFileBuilder.append(o.sentimentId());
-				vectorFileBuilder.append(' ');
-
-				Sentence sentence = new Sentence(o.sentence);
-				String line = generateSentenceLineVectorFileString(null, sentence);
-				vectorFileBuilder.append(line);
-				vectorFileBuilder.append('\n');
-			}
-		}
-
-		try
-		{
-			PrintWriter vectorFile = new PrintWriter(vectorFileName);
-			vectorFile.print(vectorFileBuilder.toString());
-			vectorFile.flush();
-			vectorFile.close();
-		} catch (FileNotFoundException e)
-		{
-			e.printStackTrace();
-		}
-	}
-
 	/////////////////////
 	// DATA PROCESSING //
 	/////////////////////
