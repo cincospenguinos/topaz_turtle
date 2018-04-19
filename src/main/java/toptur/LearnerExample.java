@@ -1,7 +1,5 @@
 package toptur;
 
-import com.sun.istack.internal.NotNull;
-
 /**
  * Learner example takes in some example Object E (could be a string, a document, whatever)
  * and a label of some sort (Boolean, Integer, etc.)
@@ -18,7 +16,7 @@ public class LearnerExample<E, L> {
     private L label;
     private LearnerExampleValueRequestListener<E> listener;
 
-    public LearnerExample(E e, L l, @NotNull LearnerExampleValueRequestListener<E> _listener) {
+    public LearnerExample(E e, L l, LearnerExampleValueRequestListener<E> _listener) {
         example = e;
         label = l;
         listener = _listener;

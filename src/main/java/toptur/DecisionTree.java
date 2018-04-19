@@ -1,7 +1,5 @@
 package toptur;
 
-import com.sun.istack.internal.NotNull;
-
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -22,7 +20,7 @@ public class DecisionTree<E, L> {
     private Map<Object, DecisionTree<E, L>> children;
     private L label;
 
-    public DecisionTree(@NotNull List<LearnerExample<E, L>> examples, @NotNull Set<Integer> features, int maxDepth) {
+    public DecisionTree(List<LearnerExample<E, L>> examples, Set<Integer> features, int maxDepth) {
         if (examplesHaveSameLabel(examples) || maxDepth == 0) {
             label = examples.get(0).getLabel();
         } else {

@@ -68,8 +68,8 @@ public class Main
 	private static Set<String> allPos;
 
 	// TODO: Set these to something that gives at least decent performance. I'm keeping them low to fix any potential bugs we have
-	private static int NUMBER_OF_TREES = 2;
-	private static int DEPTH_OF_TREES = 1;
+	private static int NUMBER_OF_TREES = 20000;
+	private static int DEPTH_OF_TREES = 3;
 
 	private static final String W_WORD = "__W_WORD__";
 	private static final String W_PREV = "__W_PREV__";
