@@ -10,7 +10,9 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Main class for the project.
@@ -28,7 +30,7 @@ public class Main
 {
 
 	//////////////////////
-	// VARIABLES //
+	//    VARIABLES     //
 	//////////////////////
 
 	public static final String TOPTUR_DATA_FOLDER = ".toptur_data/";
@@ -93,6 +95,10 @@ public class Main
 	private static final String IMP_POS_PREV = "__IMP_POS_PREV__";
 	private static final String IMP_POS_NEXT = "__IMP_POS_NEXT__";
 
+	// For multithreading
+	private static final ExecutorService THREAD_POOL = Executors.newFixedThreadPool(8);
+	private static final AndreTimer TIMER = new AndreTimer();
+
 	//////////////////////
 	//       MAIN       //
 	//////////////////////
@@ -102,11 +108,37 @@ public class Main
 		if (args.length == 0)
 			System.exit(0);
 
-		// TODO: Multhread pre-processing
-		System.out.println("Gathering SentiWordNet dictionary...");
-		getSentiWordNet();
-		getRelatedWordsMap();
-		getLearnerFeatureManager();
+		TIMER.start("PreProcessing");
+		THREAD_POOL.submit(new Runnable(){
+			public void run() {
+				getSentiWordNet();
+			}
+		});
+		THREAD_POOL.submit(new Runnable(){
+			public void run() {
+				getRelatedWordsMap();
+			}
+		});
+		THREAD_POOL.submit(new Runnable(){
+			public void run() {
+				getLearnerFeatureManager();
+			}
+		});
+
+		try {
+			boolean finished = THREAD_POOL.awaitTermination(3, TimeUnit.MINUTES);
+
+			if (!finished) {
+				System.err.println("Could not finish properly!");
+				System.exit(1);
+			}
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		TIMER.stop();
+
+        System.out.println(TIMER);
+        System.exit(0);
 
 		String task = args[0].toLowerCase();
 
@@ -395,6 +427,8 @@ public class Main
 			System.err.println("No valid task provided");
 			System.exit(1);
 		}
+
+		System.out.println(TIMER);
 	}
 
 	/////////////////////
@@ -2474,6 +2508,7 @@ public class Main
 
 	private static void getSentiWordNet()
 	{
+		System.out.println("Gathering SentiWordNet dictionary...");
 		sentiWordNetDictionary = new SentiWordNetDictionary();
 
 		try
@@ -2546,23 +2581,24 @@ public class Main
 
 			relatedWordsMap = new TreeMap<String, String[]>();
 
+            TIMER.start("RelatedWordsMap");
 			for (NewsArticle a : articles)
 			{
-				Document d = new Document(a.getFullText());
+				final Document d = new Document(a.getFullText());
 
-				for (Sentence s : d.sentences())
-				{
-					for (String w : s.words())
-					{
-						if (!relatedWordsMap.containsKey(w.toLowerCase()))
-						{
-							relatedWordsMap.put(w.toLowerCase(), getWordsRelatedTo(w.toLowerCase()));
-						}
-					}
-				}
+                for (final Sentence s : d.sentences()) {
+                	for (String w : s.words())
+                    {
+                    	if (!relatedWordsMap.containsKey(w.toLowerCase()))
+                        {
+                        	relatedWordsMap.put(w.toLowerCase(), getWordsRelatedTo(w.toLowerCase()));
+                        }
+                    }
+                }
 			}
+            TIMER.stop();
 
-			System.out.print("Creating file...");
+            System.out.print("Creating file...");
 			try
 			{
 				PrintWriter printWriter = new PrintWriter(file);

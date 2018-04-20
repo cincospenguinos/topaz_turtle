@@ -2,39 +2,15 @@
 
 My project for information extraction. This README will explain more about it. Eventually.
 
-## What do we have to do next?
+## Multithreading
 
-- [x] Train the sentence classifier
-- [ ] Train the opinion classifier
-- [ ] Train the agent classifier
-- [ ] Train the target classifier
-- [ ] Train the polarity classifier
-- [ ] Multithread the training process
-- [ ] Setup the testing process
-- [ ] Put the evaluation method back
+Here's all the run times for each of the different portions along with the number of threads used
 
-## Progress
-
-* I can detect with 53% accuracy whether or not a given sentence has an opinion simply by using "bag of words" features.
-I'd really like to see better accuracy than that.
-* Up to 55% with the addition of objectivity of sentence!
-* So depending on what seed you use, you get a variety of accuracies. A seed of 2 provides much higher accuracy than 1992
-* I wrote the evaluation method, which was super simple. I'm getting an FScore on sentences of 0.37855, which really isn't
-bad--I was expecting a whole lot worse. On different seeds I do get a whole lot worse though.
-* Turns out each sentence can easily have more than 1 opinion--at times, there are as many as 6. That's problematic. Here
-are the counts:
-    1. 124 sentences
-    2. 97
-    3. 42
-    4. 14
-    5. 4
-    6. 3
-We should modify the sentence gatherer accordingly.
-* With the recent modifications I've done on my branch, all of this should be mitigated. Each opinion expression has
-its own frame when placed in a JSON file, meaning a single sentence that has six opinions in it will have six different
-frames to represent it. The opinion extractor will take a single sentence and return a collection of opinion expressions
-it found inside.
-* So I'm getting 46% accuracy on the sentiment step, both on CADE and on my local machine. So that needs to be patched up.
+* Preprocessing Stage
+    * Gathering related words
+        1. 222.746 seconds
+        2. 
+        8. 
 
 ## Resources
 

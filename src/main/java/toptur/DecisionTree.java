@@ -157,7 +157,12 @@ public class DecisionTree<E, L> {
             }
         }
 
-        pool.shutdownNow();
+        try {
+            pool.awaitTermination(300, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
 
         if (bestFeature == -1) {
             return (Integer) features.toArray()[0];
