@@ -116,8 +116,9 @@ public class DecisionTree<E, L> {
         double overallMajorityError = majorityError(examples);
 
         // First we are going to setup a map with the different features and potential values and stuff
+        // TODO: Figure out how much of a speedup we get from multithreading this
         Map<Integer, Future<Double>> map = new TreeMap<Integer, Future<Double>>();
-        ExecutorService service = Executors.newFixedThreadPool(4);
+        ExecutorService pool = Executors.newFixedThreadPool(4);
 
         // Now we will discover features by throwing them in a thread pool
         for (final int id : features) {
@@ -135,7 +136,7 @@ public class DecisionTree<E, L> {
                 }
             };
 
-            Future<Double> f = service.submit(action);
+            Future<Double> f = pool.submit(action);
             map.put(id, f);
         }
 
@@ -156,7 +157,7 @@ public class DecisionTree<E, L> {
             }
         }
 
-        service.shutdownNow();
+        pool.shutdownNow();
 
         if (bestFeature == -1) {
             return (Integer) features.toArray()[0];

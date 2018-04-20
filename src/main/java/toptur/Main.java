@@ -10,6 +10,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.*;
+import java.util.concurrent.Executors;
 
 /**
  * Main class for the project.
@@ -68,8 +69,8 @@ public class Main
 	private static Set<String> allPos;
 
 	// TODO: Set these to something that gives at least decent performance. I'm keeping them low to fix any potential bugs we have
-	private static int NUMBER_OF_TREES = 20000;
-	private static int DEPTH_OF_TREES = 3;
+	private static int NUMBER_OF_TREES = 1000;
+	private static int DEPTH_OF_TREES = 2;
 
 	private static final String W_WORD = "__W_WORD__";
 	private static final String W_PREV = "__W_PREV__";
@@ -101,6 +102,7 @@ public class Main
 		if (args.length == 0)
 			System.exit(0);
 
+		// TODO: Multhread pre-processing
 		System.out.println("Gathering SentiWordNet dictionary...");
 		getSentiWordNet();
 		getRelatedWordsMap();
@@ -112,7 +114,7 @@ public class Main
 		{
 			ArrayList<NewsArticle> devArticles = getAllDocsFrom(DEV_DOCS);
 
-			// TODO: Multithread this chunk
+			// TODO: Multi-thread the classifiers
 
 			// Train the sentence classifier
 			System.out.println("Training the sentence classifier!");
@@ -228,6 +230,7 @@ public class Main
 				System.exit(1);
 			}
 
+			// TODO: Multithread setup
 			// Setup the LibLinear stuff
 			createSentencesVectorFile(testArticles, ".sentences.vector", sentenceClassifier);
 			createOpinionatedPhraseVectorFile(testArticles, ".opinions.vector", opinionClassifier);
@@ -1625,6 +1628,7 @@ public class Main
 	private static void extractOpinionFramesFor(NewsArticle a, BaggedTrees<Sentence, Boolean> sentenceClassifier, BaggedTrees<String, Integer> opinionClassifier, BaggedTrees<String, Integer> polarityClassifier) {
 		Document document = new Document(a.getFullText());
 
+		// TODO: Multithread extraction
 		for (Sentence s : document.sentences()) {
 			if (sentenceIsOpinionated(s, sentenceClassifier)) {
 				for (String expression : extractOpinionsFromSentence(s, opinionClassifier)) {

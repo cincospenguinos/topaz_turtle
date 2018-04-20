@@ -37,6 +37,8 @@ public class BaggedTrees<E, L> {
     public BaggedTrees(final List<LearnerExample<E, L>> examples, final Set<Integer> featureIds, int numberOfTrees, final int treeDepth) {
         trees = new ArrayList<DecisionTree<E, L>>();
 
+        // TODO: Multithread generation of all the trees
+
         for (int i = 0; i < numberOfTrees; i++) {
             Set<Integer> featureSubset = new TreeSet<Integer>();
             List<LearnerExample<E, L>> exampleSubset = new ArrayList<LearnerExample<E, L>>();
