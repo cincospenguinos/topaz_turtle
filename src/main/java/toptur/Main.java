@@ -1701,7 +1701,7 @@ public class Main
 		{
 			Process p = Runtime.getRuntime().exec("./liblinear_predict .sentence_tmp.vector " + SENTENCES_LIB_LINEAR_MODEL_FILE + " output_sentence.txt");
 			p.waitFor();
-			Scanner derp = new Scanner(Runtime.getRuntime().exec("cat output.txt").getInputStream());
+			Scanner derp = new Scanner(new File("output_sentence.txt"));
 			int i = -1;
 			if (derp.hasNextInt())
 			{
@@ -2077,7 +2077,7 @@ public class Main
 				p.waitFor();
 				String result = "";
 
-				Scanner scanner = new Scanner("output.txt");
+				Scanner scanner = new Scanner(new File("output.txt"));
 
 				while (scanner.hasNextLine()) {
 					result += scanner.nextLine();
@@ -2092,30 +2092,13 @@ public class Main
 				e.printStackTrace();
 			} catch (InterruptedException e) {
 				e.printStackTrace();
+			} catch (ArrayIndexOutOfBoundsException e) {
+				e.printStackTrace();
 			}
 		}
 
 		return confidences;
 	}
-		// System.out.println(confidences);
-		// double max = confidences.get(W_WORD);
-		// String max_word = W_WORD;
-		// for (String word : words)
-		// {
-		// if (confidences.get(word) > max)
-		// {
-		// max = confidences.get(word);
-		// max_word = word;
-		// }
-		// }
-		//
-		// if (max_word.equals(W_WORD))
-		// return "w";
-		// else if (max_word.equals(NULL_WORD))
-		// return "null";
-		// else
-		// return max_word;
-//	}
 
 	/**
 	 * TODO: Where does this go?
