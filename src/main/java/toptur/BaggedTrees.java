@@ -39,13 +39,31 @@ public class BaggedTrees<E, L> {
         trees = new ArrayList<DecisionTree<E, L>>();
         ExecutorService pool = Executors.newFixedThreadPool(numThreads);
 
-        for (int i = 0; i < numberOfTrees; i++) {// TODO: Set this up to have the main thread handle some
+        for (int i = 0; i < numberOfTrees; i += 4) { // Unrolled loop to take advantage of the main thread
             pool.submit(new Runnable() {
                 public void run() {
                     addTree(examples, featureIds, treeDepth);
                 }
             });
+            pool.submit(new Runnable() {
+                public void run() {
+                    addTree(examples, featureIds, treeDepth);
+                }
+            });
+            pool.submit(new Runnable() {
+                public void run() {
+                    addTree(examples, featureIds, treeDepth);
+                }
+            });
+            addTree(examples, featureIds, treeDepth);
         }
+
+        for (int i = trees.size(); i < numberOfTrees; i++)
+            pool.submit(new Runnable() {
+                public void run() {
+                    addTree(examples, featureIds, treeDepth);
+                }
+            });
 
         pool.shutdown(); // This will ensure that all the previous threads will execute
 
@@ -138,7 +156,7 @@ public class BaggedTrees<E, L> {
     }
 
     private void addTree(List<LearnerExample<E, L>> examples, Set<Integer> featureIds, int treeDepth) {
-        Set<Integer> featureSubset = new TreeSet<Integer>();
+        ArrayList<Integer> featureSubset = new ArrayList<Integer>();
         List<LearnerExample<E, L>> exampleSubset = new ArrayList<LearnerExample<E, L>>();
 
         for (int j = 0; j < EXAMPLE_SUBSET_SIZE; j++)

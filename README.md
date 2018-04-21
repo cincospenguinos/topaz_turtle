@@ -134,6 +134,7 @@ Here's all the run times for each of the different portions along with the numbe
             * TrainAgent      -0.001s
             * TrainTarget     182.735s
             * TrainingAll     522.008s
+        4) Cached thread pool, and loop unraveling in Main and BaggedTrees
 
 
 ## Resources

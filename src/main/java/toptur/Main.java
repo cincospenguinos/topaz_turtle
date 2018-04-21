@@ -106,7 +106,7 @@ public class Main
 		if (args.length == 0)
 			System.exit(0);
 
-		ExecutorService threadPool = Executors.newFixedThreadPool(NUM_THREADS);
+		ExecutorService threadPool = Executors.newCachedThreadPool();
 		boolean pass = false;
 
 		// PreProcessing!
@@ -157,26 +157,18 @@ public class Main
 			});
 
 			// Train to detect opinion agents
-			threadPool.submit(new Runnable() {
-				public void run() {
-					TIMER.start("TrainAgent");
-					createTrainVectorFileAgent(devArticles, AGENT_TRAINING_FILE);
-					trainLibLinear(AGENT_TRAINING_FILE, AGENT_MODEL_FILE);
-					TIMER.stop("TrainAgent");
-					System.out.println("[FIN] TrainAgent");
-				}
-			});
+			TIMER.start("TrainAgent");
+			createTrainVectorFileAgent(devArticles, AGENT_TRAINING_FILE);
+			trainLibLinear(AGENT_TRAINING_FILE, AGENT_MODEL_FILE);
+			TIMER.stop("TrainAgent");
+			System.out.println("[FIN] TrainAgent");
 
 			// Train to detect opinion targets
-			threadPool.submit(new Runnable() {
-				public void run() {
-					TIMER.start("TrainTarget");
-					createTrainVectorFileTarget(devArticles, TARGET_TRAINING_FILE);
-					trainLibLinear(TARGET_TRAINING_FILE, TARGET_MODEL_FILE);
-					TIMER.stop("TrainTarget");
-					System.out.println("[FIN] TrainTarget");
-				}
-			});
+			TIMER.start("TrainTarget");
+			createTrainVectorFileTarget(devArticles, TARGET_TRAINING_FILE);
+			trainLibLinear(TARGET_TRAINING_FILE, TARGET_MODEL_FILE);
+			TIMER.stop("TrainTarget");
+			System.out.println("[FIN] TrainTarget");
 
 			Future<BaggedTrees<String, Integer>> futurePolarityBaggedTrees = threadPool.submit(new Callable<BaggedTrees<String, Integer>>() {
 				public BaggedTrees<String, Integer> call() throws Exception {

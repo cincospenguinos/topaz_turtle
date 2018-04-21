@@ -124,7 +124,7 @@ public class DecisionTree<E, L> {
         ExecutorService pool = Executors.newFixedThreadPool(numThreads);
 
         // Now we will discover features by throwing them in a thread pool
-        for (final int id : features) { // TODO: Set this up to have the main thread handle some
+        for (final int id : features) {
             final Set<Object> potentialValues = LearnerFeatureManager.getInstance(Main.LEARNER_FEATURE_MANAGER_FILE).getLearnerFeatureFor(id).possibleValuesForFeature();
 
             Callable<Double> action = new Callable<Double>() {
