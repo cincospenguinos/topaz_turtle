@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class LibLinearFeatureManager {
     public enum LibLinearFeature {
@@ -29,11 +30,11 @@ public class LibLinearFeatureManager {
 
     private static volatile LibLinearFeatureManager instance;
 
-    private int counter;
+    private AtomicInteger counter; // Had to convert it to this to ensure IDs remain unique
     private HashMap<LibLinearFeature, TreeMap<Object, Integer>> ids;
 
     private LibLinearFeatureManager() {
-        counter = 1;
+        counter = new AtomicInteger(1);
         ids = new HashMap<LibLinearFeature, TreeMap<Object, Integer>>();
 
         for (LibLinearFeature f : LibLinearFeature.values())
@@ -95,8 +96,8 @@ public class LibLinearFeatureManager {
         if (map.containsKey(value))
             return map.get(value);
 
-        int id = counter;
-        map.put(value, counter++);
+        int id = counter.get();
+        map.put(value, counter.getAndIncrement());
 
         return id;
     }

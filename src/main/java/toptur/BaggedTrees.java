@@ -39,7 +39,7 @@ public class BaggedTrees<E, L> {
         trees = new ArrayList<DecisionTree<E, L>>();
         ExecutorService pool = Executors.newFixedThreadPool(numThreads);
 
-        for (int i = 0; i < numberOfTrees; i++) {
+        for (int i = 0; i < numberOfTrees; i++) {// TODO: Set this up to have the main thread handle some
             pool.submit(new Runnable() {
                 public void run() {
                     addTree(examples, featureIds, treeDepth);

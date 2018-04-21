@@ -15,13 +15,7 @@ Here's all the run times for each of the different portions along with the numbe
         5. 124.777s
         6. 118.318s
         7. 114.461s
-        8. 110.879s
-    * Everything
-        1. 120.461s
-        2.
-        3.
-        4.
-        * CACHED: 
+        8. 110.879s 
 * Training
     * Decision Tree using all features of depth 1. There were 9501 different features that needed to be considered.
         1. 238.456s
@@ -116,6 +110,30 @@ Here's all the run times for each of the different portions along with the numbe
         * BaggedTrees50D1T8,7     7.548s
         * BaggedTrees50D1T8,8     7.605s
     * The best one was 3,3, which is reasonable to me
+    * The whole enchilada, before incorporating the main thread:
+        1) 1 Thread
+            * BaggedTreesOpinions     418.679s
+            * BaggedTreesPolarity     15.904s
+            * BaggedTreesSentences    12.963s
+            * PreProcessing   2.133s
+            * TrainAgent      72.324s
+            * TrainTarget     58.534s
+            * TrainingAll     578.752s
+        2) 2 Threads
+            * BaggedTreesOpinions     391.054s
+            * BaggedTreesPolarity     19.231s
+            * PreProcessing   2.27s
+            * TrainAgent      197.019s
+            * TrainTarget     134.164s
+            * TrainingAll     391.375s    
+        3) 3 Threads
+            * BaggedTreesOpinions     521.696s
+            * BaggedTreesPolarity     43.394s
+            * DataMuse        113.013s
+            * PreProcessing   115.444s
+            * TrainAgent      -0.001s
+            * TrainTarget     182.735s
+            * TrainingAll     522.008s
 
 
 ## Resources

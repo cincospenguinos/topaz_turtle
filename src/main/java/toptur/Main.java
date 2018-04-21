@@ -10,9 +10,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 /**
  * Main class for the project.
@@ -71,8 +69,8 @@ public class Main
 	private static Set<String> allPos;
 
 	// TODO: Set these to something that gives at least decent performance. I'm keeping them low to fix any potential bugs we have
-	private static int NUMBER_OF_TREES = 1000;
-	private static int DEPTH_OF_TREES = 2;
+	private static int NUMBER_OF_TREES = 10;
+	private static int DEPTH_OF_TREES = 1;
 
 	private static final String W_WORD = "__W_WORD__";
 	private static final String W_PREV = "__W_PREV__";
@@ -96,8 +94,8 @@ public class Main
 	private static final String IMP_POS_NEXT = "__IMP_POS_NEXT__";
 
 	// For multithreading
-//	private static final ExecutorService THREAD_POOL = Executors.newFixedThreadPool(8);
 	public static final AndreTimer TIMER = new AndreTimer();
+	private static final int NUM_THREADS = 3;
 
 	//////////////////////
 	//       MAIN       //
@@ -108,7 +106,7 @@ public class Main
 		if (args.length == 0)
 			System.exit(0);
 
-		ExecutorService threadPool = Executors.newFixedThreadPool(1);
+		ExecutorService threadPool = Executors.newFixedThreadPool(NUM_THREADS);
 		boolean pass = false;
 
 		// PreProcessing!
@@ -118,71 +116,114 @@ public class Main
 		getLearnerFeatureManager();
 		TIMER.stop();
 
-		System.exit(0);
-
 		String task = args[0].toLowerCase();
 
-		if (task.equals("train"))
+		if (task.equals("train")) // TODO: Have the main thread handle some work
 		{
-			ArrayList<NewsArticle> devArticles = getAllDocsFrom(DEV_DOCS);
-			List<LearnerExample<Sentence, Boolean>> sentenceExamples = getOpinionatedSentenceExamples(devArticles);
-
-			// TODO: Multi-thread the classifiers
-			System.out.println(TIMER);
-			System.exit(1);
+			System.out.println("Beginning Training...");
+			TIMER.start("TrainingAll");
+			final ArrayList<NewsArticle> devArticles = getAllDocsFrom(DEV_DOCS);
 
 			// Train the sentence classifier
-			System.out.println("Training the sentence classifier!");
-			System.out.print("\tbagged trees...");
-//			List<LearnerExample<Sentence, Boolean>> sentenceExamples = getOpinionatedSentenceExamples(devArticles);
-//			BaggedTrees<Sentence, Boolean> opinionatedSentenceClassifier = new BaggedTrees<Sentence, Boolean>(sentenceExamples,
-//					LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getSentenceFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
-			System.out.println("done.");
-			System.out.print("\tliblinear...");
-//			createSentencesVectorFile(devArticles, ".sentences.vector", opinionatedSentenceClassifier);
-			trainLibLinear(".sentences.vector", SENTENCES_LIB_LINEAR_MODEL_FILE);
-			System.out.println("done.");
+			Future<BaggedTrees<Sentence, Boolean>> futureSentencesBaggedTrees = threadPool.submit(new Callable<BaggedTrees<Sentence, Boolean>>() {
+				public BaggedTrees<Sentence, Boolean> call() throws Exception {
+					TIMER.start("BaggedTreesSentences");
+					List<LearnerExample<Sentence, Boolean>> sentenceExamples = getOpinionatedSentenceExamples(devArticles);
+					BaggedTrees<Sentence, Boolean> opinionatedSentenceClassifier = new BaggedTrees<Sentence, Boolean>(sentenceExamples,
+							LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getSentenceFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
+					createSentencesVectorFile(devArticles, ".sentences.vector", opinionatedSentenceClassifier);
+					trainLibLinear(".sentences.vector", SENTENCES_LIB_LINEAR_MODEL_FILE);
+					TIMER.stop("BaggedTreesSentences");
+					System.out.println("[FIN] BaggedTreesSentences");
 
-			System.out.println("Training the opinion classifier!");
-			System.out.print("\tbagged trees...");
-			List<LearnerExample<String, Integer>> opinionExamples = getOpinionWordExamples(devArticles);
-			BaggedTrees<String, Integer> opinionatedWordClassifier = new BaggedTrees<String, Integer>(opinionExamples,
-					LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getOpinionPhraseFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
-			System.out.println("done.");
-			System.out.print("\tliblinear...");
-			createOpinionatedPhraseVectorFile(devArticles, ".opinions.vector", opinionatedWordClassifier);
-			trainLibLinear(".opinions.vector", OPINIONS_LIB_LINEAR_MODEL_FILE);
-			System.out.println("done.");
+					return opinionatedSentenceClassifier;
+				}
+			});
+
+			// Train the opinion classifer
+			Future<BaggedTrees<String, Integer>> futureOpinionExpressionBaggedTrees = threadPool.submit(new Callable<BaggedTrees<String, Integer>>() {
+				public BaggedTrees<String, Integer> call() throws Exception {
+					TIMER.start("BaggedTreesOpinions");
+					List<LearnerExample<String, Integer>> opinionExamples = getOpinionWordExamples(devArticles);
+					BaggedTrees<String, Integer> opinionatedWordClassifier = new BaggedTrees<String, Integer>(opinionExamples,
+							LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getOpinionPhraseFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
+					createOpinionatedPhraseVectorFile(devArticles, ".opinions.vector", opinionatedWordClassifier);
+					trainLibLinear(".opinions.vector", OPINIONS_LIB_LINEAR_MODEL_FILE);
+					TIMER.stop("BaggedTreesOpinions");
+					System.out.println("[FIN] BaggedTreesOpinions");
+
+					return opinionatedWordClassifier;
+				}
+			});
 
 			// Train to detect opinion agents
-			createTrainVectorFileAgent(devArticles, AGENT_TRAINING_FILE);
-			trainLibLinear(AGENT_TRAINING_FILE, AGENT_MODEL_FILE);
+			threadPool.submit(new Runnable() {
+				public void run() {
+					TIMER.start("TrainAgent");
+					createTrainVectorFileAgent(devArticles, AGENT_TRAINING_FILE);
+					trainLibLinear(AGENT_TRAINING_FILE, AGENT_MODEL_FILE);
+					TIMER.stop("TrainAgent");
+					System.out.println("[FIN] TrainAgent");
+				}
+			});
 
-			// Train to detect opinion agents
-			createTrainVectorFileTarget(devArticles, TARGET_TRAINING_FILE);
-			trainLibLinear(TARGET_TRAINING_FILE, TARGET_MODEL_FILE);
+			// Train to detect opinion targets
+			threadPool.submit(new Runnable() {
+				public void run() {
+					TIMER.start("TrainTarget");
+					createTrainVectorFileTarget(devArticles, TARGET_TRAINING_FILE);
+					trainLibLinear(TARGET_TRAINING_FILE, TARGET_MODEL_FILE);
+					TIMER.stop("TrainTarget");
+					System.out.println("[FIN] TrainTarget");
+				}
+			});
 
+			Future<BaggedTrees<String, Integer>> futurePolarityBaggedTrees = threadPool.submit(new Callable<BaggedTrees<String, Integer>>() {
+				public BaggedTrees<String, Integer> call() throws Exception {
+					TIMER.start("BaggedTreesPolarity");
+					List<LearnerExample<String, Integer>> polarityExamples = getPolarityExamples(devArticles);
+					BaggedTrees<String, Integer> polarityClassifier = new BaggedTrees<String, Integer>(polarityExamples,
+							LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getPolarityPhraseFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
+					createPolarityVectorFile(devArticles, ".polarities.vector", polarityClassifier);
+					trainLibLinear(".polarities.vector", POLARITY_LIB_LINEAR_MODEL_FILE);
+					TIMER.stop("BaggedTreesPolarity");
+					System.out.println("[FIN] BaggedTreesPolarity");
 
-			System.out.println("Training the polarity classifier!");
-			System.out.print("\tbagged trees...");
-			List<LearnerExample<String, Integer>> polarityExamples = getPolarityExamples(devArticles);
-			BaggedTrees<String, Integer> polarityClassifier = new BaggedTrees<String, Integer>(polarityExamples,
-					LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getPolarityPhraseFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
-			System.out.println("done.");
-			System.out.print("liblinear...");
-			createPolarityVectorFile(devArticles, ".polarities.vector", polarityClassifier);
-			trainLibLinear(".polarities.vector", POLARITY_LIB_LINEAR_MODEL_FILE);
-			System.out.println("done.");
+					return polarityClassifier;
+				}
+			});
+
+			// Join all the threads together, waiting 10 whole minutes to do so
+			threadPool.shutdown();
+			try {
+				pass = threadPool.awaitTermination(20, TimeUnit.MINUTES);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+
+			if (!pass) {
+				System.err.println("Failure in training!");
+				System.exit(1);
+			}
 
 			System.out.println("Saving classifiers to disk...");
-//			opinionatedSentenceClassifier.saveToFile(BAGGED_TREES_SENTENCE_CLASSIFIER);
-			opinionatedWordClassifier.saveToFile(BAGGED_TREES_OPINION_CLASSIFIER);
-			polarityClassifier.saveToFile(BAGGED_TREES_POLARITY_CLASSIFIER);
+
+			// At this point, everything is joined again, so we just need to save everything to a file.
+			try {
+				futureSentencesBaggedTrees.get().saveToFile(BAGGED_TREES_SENTENCE_CLASSIFIER);
+				futureOpinionExpressionBaggedTrees.get().saveToFile(BAGGED_TREES_OPINION_CLASSIFIER);
+				futurePolarityBaggedTrees.get().saveToFile(BAGGED_TREES_POLARITY_CLASSIFIER);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			} catch (ExecutionException e) {
+				e.printStackTrace();
+			}
+
 			LearnerFeatureManager.getInstance(null).saveInstance(LEARNER_FEATURE_MANAGER_FILE);
 			LibLinearFeatureManager.saveInstance(LIB_LINEAR_FEATURE_MANAGER_FILE);
 
             System.out.println("___FINISHED TRAINING___");
-
+			TIMER.stop();
 		} else if (task.equals("test"))
 		{
 			TreeSet<EvaluationOption> evalOptions = new TreeSet<EvaluationOption>();
