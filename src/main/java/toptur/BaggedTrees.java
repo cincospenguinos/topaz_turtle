@@ -25,6 +25,7 @@ public class BaggedTrees<E, L> {
     private static final int FEATURE_SUBSET_SIZE = 100;
 
     private static volatile Random random = new Random(1992);
+    private static int numThreads = 3;
 
     /**
      * Serial version of generating trees.
@@ -36,21 +37,28 @@ public class BaggedTrees<E, L> {
      */
     public BaggedTrees(final List<LearnerExample<E, L>> examples, final Set<Integer> featureIds, int numberOfTrees, final int treeDepth) {
         trees = new ArrayList<DecisionTree<E, L>>();
-
-        // TODO: Multithread generation of all the trees
+        ExecutorService pool = Executors.newFixedThreadPool(numThreads);
 
         for (int i = 0; i < numberOfTrees; i++) {
-            Set<Integer> featureSubset = new TreeSet<Integer>();
-            List<LearnerExample<E, L>> exampleSubset = new ArrayList<LearnerExample<E, L>>();
+            pool.submit(new Runnable() {
+                public void run() {
+                    addTree(examples, featureIds, treeDepth);
+                }
+            });
+        }
 
-            for (int j = 0; j < EXAMPLE_SUBSET_SIZE; j++)
-                exampleSubset.add(examples.get(random.nextInt(examples.size())));
+        pool.shutdown(); // This will ensure that all the previous threads will execute
 
-            Integer[] featureClone = featureIds.toArray(new Integer[0]);
-            for (int j = 0; j < FEATURE_SUBSET_SIZE; j++)
-                featureSubset.add(featureClone[random.nextInt(featureClone.length)]);
+        try {
+            boolean successful = pool.awaitTermination(10, TimeUnit.MINUTES);
 
-            trees.add(new DecisionTree<E, L>(exampleSubset, featureSubset, treeDepth));
+            if (!successful) {
+                System.out.println("Not successful! BAGGEDTREES");
+                System.exit(1);
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            System.exit(1);
         }
     }
 
@@ -116,6 +124,10 @@ public class BaggedTrees<E, L> {
         }
     }
 
+    public static void setNumThreads(int number) {
+        numThreads = number;
+    }
+
     /**
      * Set the seed for the randomizer that decides what featureIds are handed to the decision trees.
      *
@@ -123,5 +135,20 @@ public class BaggedTrees<E, L> {
      */
     public static void setSeed(int seed) {
         random = new Random(seed);
+    }
+
+    private void addTree(List<LearnerExample<E, L>> examples, Set<Integer> featureIds, int treeDepth) {
+        Set<Integer> featureSubset = new TreeSet<Integer>();
+        List<LearnerExample<E, L>> exampleSubset = new ArrayList<LearnerExample<E, L>>();
+
+        for (int j = 0; j < EXAMPLE_SUBSET_SIZE; j++)
+            exampleSubset.add(examples.get(random.nextInt(examples.size())));
+
+        Integer[] featureClone = featureIds.toArray(new Integer[0]);
+        for (int j = 0; j < FEATURE_SUBSET_SIZE; j++)
+            featureSubset.add(featureClone[random.nextInt(featureClone.length)]);
+
+        DecisionTree<E, L> tree = new DecisionTree<E, L>(exampleSubset, featureSubset, treeDepth);
+        trees.add(tree);
     }
 }

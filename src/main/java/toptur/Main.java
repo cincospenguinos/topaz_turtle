@@ -66,7 +66,7 @@ public class Main
 	private static final String OMEGA_POS = "_OMEGA_POS_";
 
 	private static SentiWordNetDictionary sentiWordNetDictionary;
-	private static Map<String, String[]> relatedWordsMap;
+	private static volatile Map<String, String[]> relatedWordsMap;
 	private static Set<String> allWords;
 	private static Set<String> allPos;
 
@@ -96,8 +96,8 @@ public class Main
 	private static final String IMP_POS_NEXT = "__IMP_POS_NEXT__";
 
 	// For multithreading
-	private static final ExecutorService THREAD_POOL = Executors.newFixedThreadPool(8);
-	private static final AndreTimer TIMER = new AndreTimer();
+//	private static final ExecutorService THREAD_POOL = Executors.newFixedThreadPool(8);
+	public static final AndreTimer TIMER = new AndreTimer();
 
 	//////////////////////
 	//       MAIN       //
@@ -108,55 +108,38 @@ public class Main
 		if (args.length == 0)
 			System.exit(0);
 
+		ExecutorService threadPool = Executors.newFixedThreadPool(1);
+		boolean pass = false;
+
+		// PreProcessing!
 		TIMER.start("PreProcessing");
-		THREAD_POOL.submit(new Runnable(){
-			public void run() {
-				getSentiWordNet();
-			}
-		});
-		THREAD_POOL.submit(new Runnable(){
-			public void run() {
-				getRelatedWordsMap();
-			}
-		});
-		THREAD_POOL.submit(new Runnable(){
-			public void run() {
-				getLearnerFeatureManager();
-			}
-		});
-
-		try {
-			boolean finished = THREAD_POOL.awaitTermination(3, TimeUnit.MINUTES);
-
-			if (!finished) {
-				System.err.println("Could not finish properly!");
-				System.exit(1);
-			}
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
+		getSentiWordNet();
+		getRelatedWordsMap();
+		getLearnerFeatureManager();
 		TIMER.stop();
 
-        System.out.println(TIMER);
-        System.exit(0);
+		System.exit(0);
 
 		String task = args[0].toLowerCase();
 
 		if (task.equals("train"))
 		{
 			ArrayList<NewsArticle> devArticles = getAllDocsFrom(DEV_DOCS);
+			List<LearnerExample<Sentence, Boolean>> sentenceExamples = getOpinionatedSentenceExamples(devArticles);
 
 			// TODO: Multi-thread the classifiers
+			System.out.println(TIMER);
+			System.exit(1);
 
 			// Train the sentence classifier
 			System.out.println("Training the sentence classifier!");
 			System.out.print("\tbagged trees...");
-			List<LearnerExample<Sentence, Boolean>> sentenceExamples = getOpinionatedSentenceExamples(devArticles);
-			BaggedTrees<Sentence, Boolean> opinionatedSentenceClassifier = new BaggedTrees<Sentence, Boolean>(sentenceExamples,
-					LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getSentenceFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
+//			List<LearnerExample<Sentence, Boolean>> sentenceExamples = getOpinionatedSentenceExamples(devArticles);
+//			BaggedTrees<Sentence, Boolean> opinionatedSentenceClassifier = new BaggedTrees<Sentence, Boolean>(sentenceExamples,
+//					LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getSentenceFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
 			System.out.println("done.");
 			System.out.print("\tliblinear...");
-			createSentencesVectorFile(devArticles, ".sentences.vector", opinionatedSentenceClassifier);
+//			createSentencesVectorFile(devArticles, ".sentences.vector", opinionatedSentenceClassifier);
 			trainLibLinear(".sentences.vector", SENTENCES_LIB_LINEAR_MODEL_FILE);
 			System.out.println("done.");
 
@@ -192,7 +175,7 @@ public class Main
 			System.out.println("done.");
 
 			System.out.println("Saving classifiers to disk...");
-			opinionatedSentenceClassifier.saveToFile(BAGGED_TREES_SENTENCE_CLASSIFIER);
+//			opinionatedSentenceClassifier.saveToFile(BAGGED_TREES_SENTENCE_CLASSIFIER);
 			opinionatedWordClassifier.saveToFile(BAGGED_TREES_OPINION_CLASSIFIER);
 			polarityClassifier.saveToFile(BAGGED_TREES_POLARITY_CLASSIFIER);
 			LearnerFeatureManager.getInstance(null).saveInstance(LEARNER_FEATURE_MANAGER_FILE);
@@ -2581,24 +2564,42 @@ public class Main
 
 			relatedWordsMap = new TreeMap<String, String[]>();
 
-            TIMER.start("RelatedWordsMap");
+			TIMER.start("DataMuse");
+			ExecutorService pool = Executors.newFixedThreadPool(7);
+
 			for (NewsArticle a : articles)
 			{
 				final Document d = new Document(a.getFullText());
 
-                for (final Sentence s : d.sentences()) {
-                	for (String w : s.words())
-                    {
-                    	if (!relatedWordsMap.containsKey(w.toLowerCase()))
-                        {
-                        	relatedWordsMap.put(w.toLowerCase(), getWordsRelatedTo(w.toLowerCase()));
-                        }
-                    }
-                }
+                pool.submit(new Runnable() {
+					public void run() {
+						for (final Sentence s : d.sentences()) {
+							for (String w : s.words())
+							{
+								if (!relatedWordsMap.containsKey(w.toLowerCase()))
+								{
+									relatedWordsMap.put(w.toLowerCase(), getWordsRelatedTo(w.toLowerCase()));
+								}
+							}
+						}
+					}
+				});
 			}
-            TIMER.stop();
 
-            System.out.print("Creating file...");
+			pool.shutdown();
+
+			try {
+				boolean success = pool.awaitTermination(10, TimeUnit.MINUTES);
+				if (!success) {
+					System.err.println("Not successful! DATAMUSE");
+					System.exit(1);
+				}
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			TIMER.stop();
+
+			System.out.print("Creating file...");
 			try
 			{
 				PrintWriter printWriter = new PrintWriter(file);

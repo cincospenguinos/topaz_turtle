@@ -10,9 +10,9 @@ import java.util.TreeMap;
  */
 public class AndreTimer {
 
-    private TreeMap<String, Long> times;
-    private Stack<AndreTimerFrame> runningTimes;
-    private AndreTimerFrame currentFrame;
+    private volatile TreeMap<String, Long> times;
+    private volatile Stack<AndreTimerFrame> runningTimes;
+    private volatile AndreTimerFrame currentFrame;
 
     public AndreTimer() {
         times = new TreeMap<String, Long>();
@@ -44,6 +44,31 @@ public class AndreTimer {
             currentFrame = runningTimes.pop();
         else
             currentFrame = null;
+    }
+
+    /**
+     * Stops the timer matching the name provided. This method is designed to allow threaded testing,
+     * however IT DOES SKEW TIMINGS TO BE SLOWER. Use this only if you are worried about threading issues.
+     *
+     * @param name -
+     */
+    public void stop(String name) {
+        if (currentFrame.getName().equals(name))
+            stop();
+
+        AndreTimerFrame frame = null;
+
+        for (AndreTimerFrame f : runningTimes){
+            if (f.getName().equals(name)) {
+                f.stop();
+                times.put(currentFrame.getName(), currentFrame.totalTimeMillis());
+                frame = f;
+                break;
+            }
+        }
+
+        if (frame != null)
+            runningTimes.remove(frame);
     }
 
     /**

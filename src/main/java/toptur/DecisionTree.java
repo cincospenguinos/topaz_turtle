@@ -9,8 +9,6 @@ import java.util.concurrent.*;
  * - Every feature for a learner has a unique unsigned integer ID
  * - The values of these features depend completely on the corpus
  *
- * TODO: This needs to be tested soooooo bad
- *
  * @param <E> Example type (a String, a sentence, a document)
  * @param <L> Label type (a boolean value, an integer, a double)
  */
@@ -19,6 +17,8 @@ public class DecisionTree<E, L> {
     private int featureId;
     private Map<Object, DecisionTree<E, L>> children;
     private L label;
+
+    private static int numThreads = 3;
 
     public DecisionTree(List<LearnerExample<E, L>> examples, Set<Integer> features, int maxDepth) {
         if (examplesHaveSameLabel(examples) || maxDepth == 0) {
@@ -86,6 +86,10 @@ public class DecisionTree<E, L> {
         return max + 1;
     }
 
+    public static void setNumThreads(int number) {
+        numThreads = number;
+    }
+
     /**
      * Helper method. Returns true if every example has the exact same label.
      *
@@ -116,9 +120,8 @@ public class DecisionTree<E, L> {
         double overallMajorityError = majorityError(examples);
 
         // First we are going to setup a map with the different features and potential values and stuff
-        // TODO: Figure out how much of a speedup we get from multithreading this
         Map<Integer, Future<Double>> map = new TreeMap<Integer, Future<Double>>();
-        ExecutorService pool = Executors.newFixedThreadPool(4);
+        ExecutorService pool = Executors.newFixedThreadPool(numThreads);
 
         // Now we will discover features by throwing them in a thread pool
         for (final int id : features) {
@@ -157,8 +160,14 @@ public class DecisionTree<E, L> {
             }
         }
 
+        pool.shutdown(); // If I understand correctly, this will ensure that all tasks are executed and completed
+
         try {
-            pool.awaitTermination(300, TimeUnit.SECONDS);
+            boolean successful = pool.awaitTermination(10, TimeUnit.MINUTES);
+            if (!successful) {
+                System.out.println("Not successful! DECISION TREE");
+                System.exit(1);
+            }
         } catch (InterruptedException e) {
             e.printStackTrace();
             System.exit(1);
