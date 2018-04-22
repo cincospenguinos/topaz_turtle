@@ -95,7 +95,7 @@ public class Main
 
 	// For multithreading
 	public static final AndreTimer TIMER = new AndreTimer();
-	private static final int NUM_THREADS = 3;
+	private static final int NUM_THREADS = 2;
 
 	//////////////////////
 	//       MAIN       //
@@ -106,7 +106,7 @@ public class Main
 		if (args.length == 0)
 			System.exit(0);
 
-		ExecutorService threadPool = Executors.newCachedThreadPool();
+		ExecutorService threadPool = Executors.newFixedThreadPool(NUM_THREADS);
 		boolean pass = false;
 
 		// PreProcessing!
@@ -118,7 +118,7 @@ public class Main
 
 		String task = args[0].toLowerCase();
 
-		if (task.equals("train")) // TODO: Have the main thread handle some work
+		if (task.equals("train"))
 		{
 			System.out.println("Beginning Training...");
 			TIMER.start("TrainingAll");
@@ -156,20 +156,6 @@ public class Main
 				}
 			});
 
-			// Train to detect opinion agents
-			TIMER.start("TrainAgent");
-			createTrainVectorFileAgent(devArticles, AGENT_TRAINING_FILE);
-			trainLibLinear(AGENT_TRAINING_FILE, AGENT_MODEL_FILE);
-			TIMER.stop("TrainAgent");
-			System.out.println("[FIN] TrainAgent");
-
-			// Train to detect opinion targets
-			TIMER.start("TrainTarget");
-			createTrainVectorFileTarget(devArticles, TARGET_TRAINING_FILE);
-			trainLibLinear(TARGET_TRAINING_FILE, TARGET_MODEL_FILE);
-			TIMER.stop("TrainTarget");
-			System.out.println("[FIN] TrainTarget");
-
 			Future<BaggedTrees<String, Integer>> futurePolarityBaggedTrees = threadPool.submit(new Callable<BaggedTrees<String, Integer>>() {
 				public BaggedTrees<String, Integer> call() throws Exception {
 					TIMER.start("BaggedTreesPolarity");
@@ -184,6 +170,20 @@ public class Main
 					return polarityClassifier;
 				}
 			});
+
+			// Train to detect opinion agents
+			TIMER.start("TrainAgent");
+			createTrainVectorFileAgent(devArticles, AGENT_TRAINING_FILE);
+			trainLibLinear(AGENT_TRAINING_FILE, AGENT_MODEL_FILE);
+			TIMER.stop("TrainAgent");
+			System.out.println("[FIN] TrainAgent");
+
+			// Train to detect opinion targets
+			TIMER.start("TrainTarget");
+			createTrainVectorFileTarget(devArticles, TARGET_TRAINING_FILE);
+			trainLibLinear(TARGET_TRAINING_FILE, TARGET_MODEL_FILE);
+			TIMER.stop("TrainTarget");
+			System.out.println("[FIN] TrainTarget");
 
 			// Join all the threads together, waiting 10 whole minutes to do so
 			threadPool.shutdown();
@@ -216,7 +216,7 @@ public class Main
 
             System.out.println("___FINISHED TRAINING___");
 			TIMER.stop();
-		} else if (task.equals("test"))
+		} else if (task.equals("test")) // TODO: Parallelize this
 		{
 			TreeSet<EvaluationOption> evalOptions = new TreeSet<EvaluationOption>();
 
@@ -278,7 +278,6 @@ public class Main
 				System.exit(1);
 			}
 
-			// TODO: Multithread setup
 			// Setup the LibLinear stuff
 			createSentencesVectorFile(testArticles, ".sentences.vector", sentenceClassifier);
 			createOpinionatedPhraseVectorFile(testArticles, ".opinions.vector", opinionClassifier);
@@ -315,7 +314,7 @@ public class Main
 
 			evaluateExtractedOpinions(testArticles, evalOptions);
 
-		} else if (task.equals("extract"))
+		} else if (task.equals("extract")) // TODO: Parallelize this
 		{
 			Gson gson = new Gson();
 
