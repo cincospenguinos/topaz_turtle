@@ -134,7 +134,7 @@ Here's all the run times for each of the different portions along with the numbe
             * TrainAgent      -0.001s
             * TrainTarget     182.735s
             * TrainingAll     522.008s
-        4) Cached thread pool, and loop unraveling in Main and BaggedTrees
+        4) Cached thread pool, main thread handling work, and loop unraveling in BaggedTrees
             * BaggedTreesOpinions     542.421s
             * BaggedTreesPolarity     37.656s
             * PreProcessing   2.303s
@@ -149,6 +149,13 @@ Here's all the run times for each of the different portions along with the numbe
             * TrainAgent      -0.001s
             * TrainTarget     170.507s
             * TrainingAll     504.747s
+        6) One extra thread, only opinions are managed on the main thread
+            * BaggedTreesOpinions     535.656s
+            * BaggedTreesPolarity     44.103s
+            * PreProcessing   2.457s
+            * TrainAgent      -0.001s
+            * TrainTarget     192.052s
+            * TrainingAll     535.982s
 
 
 ## Resources

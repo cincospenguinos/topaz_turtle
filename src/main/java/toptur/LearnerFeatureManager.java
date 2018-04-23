@@ -8,10 +8,11 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class LearnerFeatureManager {
 
-    private volatile int idCounter;
+    private AtomicInteger idCounter;
     private Map<LearnerFeature, Map<Object, Integer>> ids;
     private Map<LearnerFeature, Set<Object>> potentialValues;
     private Map<Integer, LearnerFeature> idsToFeatureTypes;
@@ -33,7 +34,7 @@ public class LearnerFeatureManager {
     }
 
     private LearnerFeatureManager() {
-        idCounter = 0;
+        idCounter = new AtomicInteger(0);
         ids = new HashMap<LearnerFeature, Map<Object, Integer>>();
         potentialValues = new HashMap<LearnerFeature, Set<Object>>();
         idsToFeatureTypes = new HashMap<Integer, LearnerFeature>();
@@ -55,11 +56,10 @@ public class LearnerFeatureManager {
         Map<Object, Integer> map = ids.get(feature);
 
         if (!map.containsKey(value)) {
-            int id = idCounter;
-            map.put(value, id); // TODO: Manage the concurrency issue here
+            int id = idCounter.getAndIncrement();
+            map.put(value, id);
             potentialValues.get(feature).add(value);
             idsToFeatureTypes.put(id, feature);
-            idCounter += 1;
         }
 
         return map.get(value);
@@ -133,13 +133,13 @@ public class LearnerFeatureManager {
     /**
      * Save the instance to the disk.
      *
-     * TODO: This may need to be redone or something
-     *
      * @param learnerFeatureManagerFile -
      */
     public void saveInstance(String learnerFeatureManagerFile) {
         File f = new File(learnerFeatureManagerFile);
         Gson gson = new Gson();
+
+        System.out.println("Size is " + ids.get(LearnerFeature.OBJECTIVITY_OF_WORD).size());
 
         try {
             PrintWriter writer = new PrintWriter(f);

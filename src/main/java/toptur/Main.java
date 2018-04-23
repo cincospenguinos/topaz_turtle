@@ -68,7 +68,6 @@ public class Main
 	private static Set<String> allWords;
 	private static Set<String> allPos;
 
-	// TODO: Set these to something that gives at least decent performance. I'm keeping them low to fix any potential bugs we have
 	private static int NUMBER_OF_TREES = 10;
 	private static int DEPTH_OF_TREES = 1;
 
@@ -95,7 +94,7 @@ public class Main
 
 	// For multithreading
 	public static final AndreTimer TIMER = new AndreTimer();
-	private static final int NUM_THREADS = 2;
+	private static final int NUM_THREADS = 1;
 
 	//////////////////////
 	//       MAIN       //
@@ -140,22 +139,6 @@ public class Main
 				}
 			});
 
-			// Train the opinion classifer
-			Future<BaggedTrees<String, Integer>> futureOpinionExpressionBaggedTrees = threadPool.submit(new Callable<BaggedTrees<String, Integer>>() {
-				public BaggedTrees<String, Integer> call() throws Exception {
-					TIMER.start("BaggedTreesOpinions");
-					List<LearnerExample<String, Integer>> opinionExamples = getOpinionWordExamples(devArticles);
-					BaggedTrees<String, Integer> opinionatedWordClassifier = new BaggedTrees<String, Integer>(opinionExamples,
-							LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getOpinionPhraseFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
-					createOpinionatedPhraseVectorFile(devArticles, ".opinions.vector", opinionatedWordClassifier);
-					trainLibLinear(".opinions.vector", OPINIONS_LIB_LINEAR_MODEL_FILE);
-					TIMER.stop("BaggedTreesOpinions");
-					System.out.println("[FIN] BaggedTreesOpinions");
-
-					return opinionatedWordClassifier;
-				}
-			});
-
 			Future<BaggedTrees<String, Integer>> futurePolarityBaggedTrees = threadPool.submit(new Callable<BaggedTrees<String, Integer>>() {
 				public BaggedTrees<String, Integer> call() throws Exception {
 					TIMER.start("BaggedTreesPolarity");
@@ -172,18 +155,36 @@ public class Main
 			});
 
 			// Train to detect opinion agents
-			TIMER.start("TrainAgent");
-			createTrainVectorFileAgent(devArticles, AGENT_TRAINING_FILE);
-			trainLibLinear(AGENT_TRAINING_FILE, AGENT_MODEL_FILE);
-			TIMER.stop("TrainAgent");
-			System.out.println("[FIN] TrainAgent");
+			threadPool.submit(new Runnable() {
+				public void run() {
+					TIMER.start("TrainAgent");
+					createTrainVectorFileAgent(devArticles, AGENT_TRAINING_FILE);
+					trainLibLinear(AGENT_TRAINING_FILE, AGENT_MODEL_FILE);
+					TIMER.stop("TrainAgent");
+					System.out.println("[FIN] TrainAgent");
+				}
+			});
 
 			// Train to detect opinion targets
-			TIMER.start("TrainTarget");
-			createTrainVectorFileTarget(devArticles, TARGET_TRAINING_FILE);
-			trainLibLinear(TARGET_TRAINING_FILE, TARGET_MODEL_FILE);
-			TIMER.stop("TrainTarget");
-			System.out.println("[FIN] TrainTarget");
+			threadPool.submit(new Runnable() {
+				public void run() {
+					TIMER.start("TrainTarget");
+					createTrainVectorFileTarget(devArticles, TARGET_TRAINING_FILE);
+					trainLibLinear(TARGET_TRAINING_FILE, TARGET_MODEL_FILE);
+					TIMER.stop("TrainTarget");
+					System.out.println("[FIN] TrainTarget");
+				}
+			});
+
+			// Train Opinion classifier
+			TIMER.start("BaggedTreesOpinions");
+			List<LearnerExample<String, Integer>> opinionExamples = getOpinionWordExamples(devArticles);
+			BaggedTrees<String, Integer> opinionatedWordClassifier = new BaggedTrees<String, Integer>(opinionExamples,
+					LearnerFeatureManager.getInstance(LEARNER_FEATURE_MANAGER_FILE).getIdsFor(LearnerFeature.getOpinionPhraseFeatures()), NUMBER_OF_TREES, DEPTH_OF_TREES);
+			createOpinionatedPhraseVectorFile(devArticles, ".opinions.vector", opinionatedWordClassifier);
+			trainLibLinear(".opinions.vector", OPINIONS_LIB_LINEAR_MODEL_FILE);
+			TIMER.stop("BaggedTreesOpinions");
+			System.out.println("[FIN] BaggedTreesOpinions");
 
 			// Join all the threads together, waiting 10 whole minutes to do so
 			threadPool.shutdown();
@@ -203,7 +204,7 @@ public class Main
 			// At this point, everything is joined again, so we just need to save everything to a file.
 			try {
 				futureSentencesBaggedTrees.get().saveToFile(BAGGED_TREES_SENTENCE_CLASSIFIER);
-				futureOpinionExpressionBaggedTrees.get().saveToFile(BAGGED_TREES_OPINION_CLASSIFIER);
+				opinionatedWordClassifier.saveToFile(BAGGED_TREES_OPINION_CLASSIFIER);
 				futurePolarityBaggedTrees.get().saveToFile(BAGGED_TREES_POLARITY_CLASSIFIER);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
@@ -216,7 +217,7 @@ public class Main
 
             System.out.println("___FINISHED TRAINING___");
 			TIMER.stop();
-		} else if (task.equals("test")) // TODO: Parallelize this
+		} else if (task.equals("test"))
 		{
 			TreeSet<EvaluationOption> evalOptions = new TreeSet<EvaluationOption>();
 
@@ -235,6 +236,8 @@ public class Main
 			ArrayList<NewsArticle> testArticles = getAllDocsFrom(TEST_DOCS);
 
 			Gson gson = new Gson();
+
+			// TODO: Parallelize prep work
 
 			// Grab the sentence classifier
 			BaggedTrees<Sentence, Boolean> sentenceClassifier = null;
@@ -309,7 +312,6 @@ public class Main
 				long endTime = System.currentTimeMillis();
 
 				System.out.println(((double) endTime - startTime) / 1000.0 + " seconds");
-				evaluateExtractedOpinions(testArticles, evalOptions);
 			}
 
 			evaluateExtractedOpinions(testArticles, evalOptions);
@@ -1674,40 +1676,50 @@ public class Main
 	 *
 	 * @param a -
 	 */
-	private static void extractOpinionFramesFor(NewsArticle a, BaggedTrees<Sentence, Boolean> sentenceClassifier, BaggedTrees<String, Integer> opinionClassifier, BaggedTrees<String, Integer> polarityClassifier) {
+	private static void extractOpinionFramesFor(NewsArticle a, BaggedTrees<Sentence, Boolean> sentenceClassifier, BaggedTrees<String, Integer> opinionClassifier, final BaggedTrees<String, Integer> polarityClassifier) {
 		Document document = new Document(a.getFullText());
+		ExecutorService threadPool = Executors.newFixedThreadPool(2);
 
-		// TODO: Multithread extraction
-		for (Sentence s : document.sentences()) {
+		TIMER.start("Extraction");
+		for (final Sentence s : document.sentences()) {
 			if (sentenceIsOpinionated(s, sentenceClassifier)) {
 				for (String expression : extractOpinionsFromSentence(s, opinionClassifier)) {
-					Opinion o = new Opinion();
+					final Opinion o = new Opinion();
 					o.opinion = expression;
 					o.sentence = s.toString();
-					o.sentiment = extractPolarityOfSentence(s, polarityClassifier);
 
-					HashMap<String, Double> confidences = extractAgentFrom(o);
-
-					double max = confidences.get(NULL_WORD);
-					String max_word = NULL_WORD;
-					for (String word : confidences.keySet())
-					{
-						if (confidences.get(word) > max)
-						{
-							max = confidences.get(word);
-							max_word = word;
+					Future<String> futurePolarity = threadPool.submit(new Callable<String>() {
+						public String call() {
+							return extractPolarityOfSentence(s, polarityClassifier);
 						}
-					}
+					});
 
-					String classifier_result;
-					if (max_word.equals(W_WORD))
-						classifier_result = "w";
-					else if (max_word.equals(NULL_WORD))
-						classifier_result = "null";
-					else
-						classifier_result = max_word;
+					Future<String> futureAgent = threadPool.submit(new Callable<String>() {
+						public String call() {
+							HashMap<String, Double> confidences = extractAgentFrom(o);
 
-					o.opinion = classifier_result;
+							double max = confidences.get(NULL_WORD);
+							String max_word = NULL_WORD;
+							for (String word : confidences.keySet())
+							{
+								if (confidences.get(word) > max)
+								{
+									max = confidences.get(word);
+									max_word = word;
+								}
+							}
+
+							String classifier_result;
+							if (max_word.equals(W_WORD))
+								classifier_result = "w";
+							else if (max_word.equals(NULL_WORD))
+								classifier_result = "null";
+							else
+								classifier_result = max_word;
+
+							return classifier_result;
+						}
+					});
 
 					HashMap<String, Double> confidences2 = extractTargetFrom(o);
 
@@ -1732,10 +1744,24 @@ public class Main
 
 					o.target = classifier_result2;
 
+
+					try {
+						o.sentiment = futurePolarity.get();
+						o.agent = futureAgent.get();
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+						System.exit(1);
+					} catch (ExecutionException e) {
+						e.printStackTrace();
+						System.exit(1);
+					}
+
 					a.addExtractedOpinion(o);
 				}
 			}
 		}
+		threadPool.shutdown();
+		TIMER.stop();
 	}
 
 	/**

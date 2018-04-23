@@ -156,7 +156,7 @@ public class BaggedTrees<E, L> {
     }
 
     private void addTree(List<LearnerExample<E, L>> examples, Set<Integer> featureIds, int treeDepth) {
-        ArrayList<Integer> featureSubset = new ArrayList<Integer>();
+        Set<Integer> featureSubset = new TreeSet<Integer>();
         List<LearnerExample<E, L>> exampleSubset = new ArrayList<LearnerExample<E, L>>();
 
         for (int j = 0; j < EXAMPLE_SUBSET_SIZE; j++)
