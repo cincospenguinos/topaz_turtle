@@ -233,39 +233,52 @@ public class Main
 				}
 			}
 
-			ArrayList<NewsArticle> testArticles = getAllDocsFrom(TEST_DOCS);
+			final Gson gson = new Gson();
 
-			Gson gson = new Gson();
-
-			// TODO: Parallelize prep work
+			Future<ArrayList<NewsArticle>> futureTestArticles = threadPool.submit(new Callable<ArrayList<NewsArticle>>() {
+				public ArrayList<NewsArticle> call() throws Exception {
+					return getAllDocsFrom(TEST_DOCS);
+				}
+			});
 
 			// Grab the sentence classifier
-			BaggedTrees<Sentence, Boolean> sentenceClassifier = null;
-			try {
-				StringBuilder builder = new StringBuilder();
-				Scanner s = new Scanner(new File(BAGGED_TREES_SENTENCE_CLASSIFIER));
-				while(s.hasNextLine()) builder.append(s.nextLine());
-				s.close();
+			Future<BaggedTrees<Sentence, Boolean>> futureSentenceClassifier = threadPool.submit(new Callable<BaggedTrees<Sentence, Boolean>>() {
+				public BaggedTrees<Sentence, Boolean> call() throws Exception {
+					try {
+						StringBuilder builder = new StringBuilder();
+						Scanner s = new Scanner(new File(BAGGED_TREES_SENTENCE_CLASSIFIER));
+						while(s.hasNextLine()) builder.append(s.nextLine());
+						s.close();
 
-				sentenceClassifier = gson.fromJson(builder.toString(), new TypeToken<BaggedTrees<Sentence, Boolean>>(){}.getType());
-			} catch (FileNotFoundException e) {
-				e.printStackTrace();
-				System.exit(1);
-			}
+						return gson.fromJson(builder.toString(), new TypeToken<BaggedTrees<Sentence, Boolean>>(){}.getType());
+					} catch (FileNotFoundException e) {
+						e.printStackTrace();
+						System.exit(1);
+					}
+
+					return null;
+				}
+			});
 
 			// Grab the opinion classifier
-			BaggedTrees<String, Integer> opinionClassifier = null;
-			try {
-				StringBuilder builder = new StringBuilder();
-				Scanner s = new Scanner(new File(BAGGED_TREES_OPINION_CLASSIFIER));
-				while(s.hasNextLine()) builder.append(s.nextLine());
-				s.close();
+			Future<BaggedTrees<String, Integer>> futureOpinionClassifier = threadPool.submit(new Callable<BaggedTrees<String, Integer>>() {
+				public BaggedTrees<String, Integer> call() throws Exception {
+					try {
+						StringBuilder builder = new StringBuilder();
+						Scanner s = new Scanner(new File(BAGGED_TREES_OPINION_CLASSIFIER));
+						while(s.hasNextLine()) builder.append(s.nextLine());
+						s.close();
 
-				opinionClassifier = gson.fromJson(builder.toString(), new TypeToken<BaggedTrees<String, Integer>>(){}.getType());
-			} catch (FileNotFoundException e) {
-				e.printStackTrace();
-				System.exit(1);
-			}
+						return gson.fromJson(builder.toString(), new TypeToken<BaggedTrees<String, Integer>>(){}.getType());
+					} catch (FileNotFoundException e) {
+						e.printStackTrace();
+						System.exit(1);
+					}
+
+					return null;
+				}
+			});
+
 
 			// Grab the polarity classifier
 			BaggedTrees<String, Integer> polarityClassifier = null;
@@ -281,7 +294,30 @@ public class Main
 				System.exit(1);
 			}
 
+			BaggedTrees<Sentence, Boolean> sentenceClassifier = null;
+			BaggedTrees<String, Integer> opinionClassifier = null;
+
+			try {
+				sentenceClassifier = futureSentenceClassifier.get();
+				opinionClassifier = futureOpinionClassifier.get();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			} catch (ExecutionException e) {
+				e.printStackTrace();
+			}
+
 			// Setup the LibLinear stuff
+			ArrayList<NewsArticle> testArticles = null;
+			try {
+				testArticles = futureTestArticles.get();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+				System.exit(1);
+			} catch (ExecutionException e) {
+				e.printStackTrace();
+				System.exit(1);
+			}
+
 			createSentencesVectorFile(testArticles, ".sentences.vector", sentenceClassifier);
 			createOpinionatedPhraseVectorFile(testArticles, ".opinions.vector", opinionClassifier);
 			createPolarityVectorFile(testArticles, ".polarity.vector", polarityClassifier);
@@ -298,6 +334,7 @@ public class Main
 
 			// Extract the opinions
 			// Let's time how long it takes
+			threadPool.shutdown();
 
 			if (evalOptions.size() == 1 && evalOptions.contains(EvaluationOption.TARGET))
 				evaluateTargetClassifier(testArticles);
@@ -316,37 +353,48 @@ public class Main
 
 			evaluateExtractedOpinions(testArticles, evalOptions);
 
-		} else if (task.equals("extract")) // TODO: Parallelize this
+		} else if (task.equals("extract"))
 		{
-			Gson gson = new Gson();
+			final Gson gson = new Gson();
 
 			// Grab the sentence classifier
-			BaggedTrees<Sentence, Boolean> sentenceClassifier = null;
-			try {
-				StringBuilder builder = new StringBuilder();
-				Scanner s = new Scanner(new File(BAGGED_TREES_SENTENCE_CLASSIFIER));
-				while(s.hasNextLine()) builder.append(s.nextLine());
-				s.close();
+			Future<BaggedTrees<Sentence, Boolean>> futureSentenceClassifier = threadPool.submit(new Callable<BaggedTrees<Sentence, Boolean>>() {
+				public BaggedTrees<Sentence, Boolean> call() throws Exception {
+					try {
+						StringBuilder builder = new StringBuilder();
+						Scanner s = new Scanner(new File(BAGGED_TREES_SENTENCE_CLASSIFIER));
+						while(s.hasNextLine()) builder.append(s.nextLine());
+						s.close();
 
-				sentenceClassifier = gson.fromJson(builder.toString(), new TypeToken<BaggedTrees<Sentence, Boolean>>(){}.getType());
-			} catch (FileNotFoundException e) {
-				e.printStackTrace();
-				System.exit(1);
-			}
+						return gson.fromJson(builder.toString(), new TypeToken<BaggedTrees<Sentence, Boolean>>(){}.getType());
+					} catch (FileNotFoundException e) {
+						e.printStackTrace();
+						System.exit(1);
+					}
+
+					return null;
+				}
+			});
 
 			// Grab the opinion classifier
-			BaggedTrees<String, Integer> opinionClassifier = null;
-			try {
-				StringBuilder builder = new StringBuilder();
-				Scanner s = new Scanner(new File(BAGGED_TREES_OPINION_CLASSIFIER));
-				while(s.hasNextLine()) builder.append(s.nextLine());
-				s.close();
+			Future<BaggedTrees<String, Integer>> futureOpinionClassifier = threadPool.submit(new Callable<BaggedTrees<String, Integer>>() {
+				public BaggedTrees<String, Integer> call() throws Exception {
+					try {
+						StringBuilder builder = new StringBuilder();
+						Scanner s = new Scanner(new File(BAGGED_TREES_OPINION_CLASSIFIER));
+						while(s.hasNextLine()) builder.append(s.nextLine());
+						s.close();
 
-				opinionClassifier = gson.fromJson(builder.toString(), new TypeToken<BaggedTrees<String, Integer>>(){}.getType());
-			} catch (FileNotFoundException e) {
-				e.printStackTrace();
-				System.exit(1);
-			}
+						return gson.fromJson(builder.toString(), new TypeToken<BaggedTrees<String, Integer>>(){}.getType());
+					} catch (FileNotFoundException e) {
+						e.printStackTrace();
+						System.exit(1);
+					}
+
+					return null;
+				}
+			});
+
 
 			// Grab the polarity classifier
 			BaggedTrees<String, Integer> polarityClassifier = null;
@@ -361,6 +409,22 @@ public class Main
 				e.printStackTrace();
 				System.exit(1);
 			}
+
+			BaggedTrees<Sentence, Boolean> sentenceClassifier = null;
+			BaggedTrees<String, Integer> opinionClassifier = null;
+
+			try {
+				sentenceClassifier = futureSentenceClassifier.get();
+				opinionClassifier = futureOpinionClassifier.get();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+				System.exit(1);
+			} catch (ExecutionException e) {
+				e.printStackTrace();
+				System.exit(1);
+			}
+
+			threadPool.shutdown();
 
 			for (int i = 1; i < args.length; i++)
 			{
