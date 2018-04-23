@@ -27,14 +27,14 @@ Here's all the run times for each of the different portions along with the numbe
         7. 64.555s
         8. 64.801s
     * 50 Bagged Trees of depth 1, using only 100 features and 100 examples, and using x threads for each tree
-        1. 35.692s
-        2. 9.846s
-        3. 9.616s
-        4. 9.414s
-        5. 9.894s
-        6. 11.704s
-        7. 15.559s
-        8. 18.142s
+        1. 35.692
+        2. 9.846
+        3. 9.616
+        4. 9.414
+        5. 9.894
+        6. 11.704
+        7. 15.559
+        8. 18.142
     * 50 Bagged Trees of depth 1, 100 features and examples, and 4 threads for the decision tree
         1. 10.934s
         2. 9.301s
