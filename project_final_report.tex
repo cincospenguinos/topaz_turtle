@@ -11,7 +11,7 @@
 \usepackage{a4wide}
 
 \newcommand\textbox[1]{%
-  \parbox{.4\textwidth}{#1}%
+\parbox{.4\textwidth}{#1}%
 }
 
 \title{Topaz Turtle---Final Report}
@@ -20,24 +20,63 @@
 % Document
 \begin{document}
     \maketitle
+    \section{Introduction}
 
-     
-       \section{Agent and Target Task Description}
-       
-       For each Opinion extracted in the gold standard, an Agent and Target were also identified. I used a multi-class classification system to identify an Agent and Target for each Opinion. Due to the nature of the data, each word token is a candidate for the agent and the target, and additionally, there are pseudo-words for the alternate responses in the gold standard (writer and implicit). 
-       
-      \subsection{Technical Approaches}
-For classification I used Liblinear and the L1-regularized logistic regression classifier. Liblinear recommends that for small datasets (which is our case) to choose an L1-regularized classifier. Additionally, because the Agent/Target classification is multi-class, I need to use Logistic Regression so that I have real-valued probabilities that can be compared. \\ 
+    Our project's goal was to detect and extract opinion expressions (subjective sentiments or statements) that are made within news articles. We used the MPQA corpus as our dataset, and employed a variety of methods to discover the opinion expression itself, its agent, target, polarity, and what sentence it comes from.
 
-Now that I have a better understanding of the data and the classification problem, I believe that I should have split the classification problem. I should have built a single classifier to identify whether an Opinion had an Agent (or a Target, for Target classification), and then have a separate multi-class classifier that chose the appropriate Agent or Target.\\
+    \section{Sentence, Opinion Expression, and Polarity}
 
-Because I did not have multi-class originally, I was labeling all candidates either as Target or not, which lent itself well to precision and recall (hence some correct looking stuff previously). Once I switched to multi-class, I made adjustments to precision and recall that I thought kept to the spirit of precision and recall, but did not. I think that the important piece that I was missing was that the decision to label is part of precision, and therefore I should not count a label like null as a labeling, since this would mean I had attempted to label everything. \\
+    The dataset provided us with a news article, as well as annotations for each of the opinion statements in the article. Using the annotations provided, a gold standard was established that outlined the sentences the opinion statements are found in, all of the opinions in their sentences, their polarity, and their target.
 
-\subsection{Evaluation Results}
+    \subsection{Technical Approaches}
 
-Per Professor Riloff's recommendation, I went back and changed my algorithm to just ignore the nulls to see if my labeling could get any recall, and I was able to get the following results:\\
 
-\begin{center} 
+    I developed an ensemble method to determine opinion expressions and their polarity. I chose LibLinear in conjunction with my own implementation of Bagged Trees as the set of classifiers used. I first trained three separate Bagged Trees classifiers: (1) to detect whether a sentence contains an opinion or not, (2) to extract all of the opinion statements in a given sentence, and (3) to determine the polarity of the given opinion expression. The Bagged Trees classifiers could give a single label given an example, or the list of all labels that each of their separate trees would provide.
+
+    These three classifiers were used as features for three different Support Vector Machine (SVM) classifiers, along with the original features that the Bagged Trees algorithm was trained on, making three different meta-classifiers. These were evaluated on our test set.
+
+    \subsection{Evaluation Results}
+
+    I got the following results against our test set:
+
+    \begin{center}
+        \begin{tabular}{ | l | c | r | c}
+            \hline
+            Extraction Type & Precision & Recall & F-Score/Accuracy \\ \hline
+            Sentences & 0.412 & 0.224 & 0.266 \\ \hline
+            Opinions & 0.231 & 0.133 & 0.100 \\ \hline
+            Polarity & 0.667 & 0.400 & 0.481 \\ \hline
+        \end{tabular}
+    \end{center}
+
+    \subsection{Regrets}
+
+    My biggest regret was not discussing my problem with Ellen and Tianyu. I would often feel paralyzed due to not immediately coming up with a solution. I believe that if I discussed my approach with Ellen and Tianyu, I would have found other ways to solve this problem, and would have come up with a better solution.
+
+    \subsection{Successes}
+
+    The precision with detecting polarity is quite astounding, considering that there are five different polarities that had to be considered. I'm quite pleased that certain parts of the system--writing my own Bagged Trees classifier was a difficult problem, but helped me develop my skills.
+
+    \subsection{Lessons Learned}
+
+    I learned how to design and implement a set of meta-classifiers, which is pretty neat. I also learned how to tackle a large and difficult problem by breaking it down into smaller puzzles and stitching their solutions together.
+
+    \section{Agent and Target Task Description}
+
+    For each Opinion extracted in the gold standard, an Agent and Target were also identified. I used a multi-class classification system to identify an Agent and Target for each Opinion. Due to the nature of the data, each word token is a candidate for the agent and the target, and additionally, there are pseudo-words for the alternate responses in the gold standard (writer and implicit).
+
+    \subsection{Technical Approaches}
+    For classification I used Liblinear and the L1-regularized logistic regression classifier. Liblinear recommends that for small datasets (which is our case) to choose an L1-regularized classifier. Additionally, because the Agent/Target classification is multi-class, I need to use Logistic Regression so that I have real-valued probabilities that can be compared. \\
+
+    Now that I have a better understanding of the data and the classification problem, I believe that I should have split the classification problem. I should have built a single classifier to identify whether an Opinion had an Agent (or a Target, for Target classification), and then have a separate multi-class classifier that chose the appropriate Agent or Target.\\
+
+    Because I did not have multi-class originally, I was labeling all candidates either as Target or not, which lent itself well to precision and recall (hence some correct looking stuff previously). Once I switched to multi-class, I made adjustments to precision and recall that I thought kept to the spirit of precision and recall, but did not. I think that the important piece that I was missing was that the decision to label is part of precision, and therefore I should not count a label like null as a labeling, since this would mean I had attempted to label everything. \\
+
+    \subsection{Evaluation Results}
+
+    Per Professor Riloff's recommendation, I went back and changed my algorithm to just ignore the nulls to see if my labeling could get any recall, and I was able to get the following results:\\
+
+    \begin{center}
 
         \begin{tabular}{ | l | c | r | c}
             \hline
@@ -46,35 +85,35 @@ Per Professor Riloff's recommendation, I went back and changed my algorithm to j
             Target & .253 & .513 & .339\\ \hline
         \end{tabular}
     \end{center}
-    
+
     I was extremely happy with the Target results, and was surprised that they so outshone the Agents after making those changes (in many cases it was a single word opinion where that word was the target). I was not able to update all the code to retro-actively get results for previous phases. Here are two examples from my new correct results: \\
-    
+
     Agent: \\
-Sentence: Boycott unfair\\
-Opinion: unfair\\
-Agent: w\\
-Predicted Agent: w\\
-Confidences:\\
-\{\_\_W\_WORD\_\_=0.266571, unfair=0.00161524\}\\
+    Sentence: Boycott unfair\\
+    Opinion: unfair\\
+    Agent: w\\
+    Predicted Agent: w\\
+    Confidences:\\
+    \{\_\_W\_WORD\_\_=0.266571, unfair=0.00161524\}\\
 
-Target:\\
-Sentence: British Foreign Secretary Jack Straw said "for months the government of Zimbabwe has conducted a systematic campaign of violence and intimidation, designed to achieve an outcome -- power at all costs."\\
-Opinion: power at all costs\\
-Target: power\\
-Predicted Target: power\\
-Confidences:\\
-\{all=0.00719525, costs=0.0909056, at=0.0123959, power=0.216407\}\\
+    Target:\\
+    Sentence: British Foreign Secretary Jack Straw said "for months the government of Zimbabwe has conducted a systematic campaign of violence and intimidation, designed to achieve an outcome -- power at all costs."\\
+    Opinion: power at all costs\\
+    Target: power\\
+    Predicted Target: power\\
+    Confidences:\\
+    \{all=0.00719525, costs=0.0909056, at=0.0123959, power=0.216407\}\\
 
 
-I also used a correct F-Score where the Precision was calculated as the number of correct guesses out of how many we attempted to label, and Recall as the number of correct labels we got out of all labeled items. This correct calculation is reflected in the new numbers I mentioned above. 
+    I also used a correct F-Score where the Precision was calculated as the number of correct guesses out of how many we attempted to label, and Recall as the number of correct labels we got out of all labeled items. This correct calculation is reflected in the new numbers I mentioned above.
 
-\subsection{Regrets}
+    \subsection{Regrets}
 
-I regret not splitting up the classification task earlier. I definitely regret not going and talking to Professor Riloff or Tianyu about the Precision and Recall, once I felt I needed to adjust them. 
-\subsection{Successes}
-Previously, I feel like I have always managed to coerce all my classification problems into binary ones. This is the first time I did a true multi-class classification problem. I also think that in the very end, even my small successes are pretty nice for such a small dataset to work with. 
- \subsection{Lessons Learned}
-I feel like I understand the goals of precision and recall now well enough that I won't mess them up again. I also know that the relationship between all your classifiers needs careful consideration and architecture in order to get the best results. 
+    I regret not splitting up the classification task earlier. I definitely regret not going and talking to Professor Riloff or Tianyu about the Precision and Recall, once I felt I needed to adjust them.
+    \subsection{Successes}
+    Previously, I feel like I have always managed to coerce all my classification problems into binary ones. This is the first time I did a true multi-class classification problem. I also think that in the very end, even my small successes are pretty nice for such a small dataset to work with.
+    \subsection{Lessons Learned}
+    I feel like I understand the goals of precision and recall now well enough that I won't mess them up again. I also know that the relationship between all your classifiers needs careful consideration and architecture in order to get the best results.
 
-	
+
 \end{document}
