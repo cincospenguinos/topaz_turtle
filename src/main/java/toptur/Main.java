@@ -426,6 +426,17 @@ public class Main
 
 			threadPool.shutdown();
 
+			try {
+				pass = threadPool.awaitTermination(15, TimeUnit.SECONDS);
+
+				if (!pass) {
+					System.err.println("Not successful! EXTRACT");
+					System.exit(1);
+				}
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+
 			for (int i = 1; i < args.length; i++)
 			{
 				File file = new File(args[i]);
@@ -1742,7 +1753,7 @@ public class Main
 	 */
 	private static void extractOpinionFramesFor(NewsArticle a, BaggedTrees<Sentence, Boolean> sentenceClassifier, BaggedTrees<String, Integer> opinionClassifier, final BaggedTrees<String, Integer> polarityClassifier) {
 		Document document = new Document(a.getFullText());
-		ExecutorService threadPool = Executors.newFixedThreadPool(2);
+		ExecutorService threadPool = Executors.newFixedThreadPool(4);
 
 		TIMER.start("Extraction");
 		for (final Sentence s : document.sentences()) {
@@ -1785,33 +1796,38 @@ public class Main
 						}
 					});
 
-					HashMap<String, Double> confidences2 = extractTargetFrom(o);
+					Future<String> futureTarget = threadPool.submit(new Callable<String>() {
+						public String call() throws Exception {
+							HashMap<String, Double> confidences2 = extractTargetFrom(o);
 
-					double max2 = confidences2.get(NULL_WORD);
-					String max_word2 = NULL_WORD;
-					for (String word : confidences2.keySet())
-					{
-						if (confidences2.get(word) > max2)
-						{
-							max2 = confidences2.get(word);
-							max_word2 = word;
+							double max2 = confidences2.get(NULL_WORD);
+							String max_word2 = NULL_WORD;
+							for (String word : confidences2.keySet())
+							{
+								if (confidences2.get(word) > max2)
+								{
+									max2 = confidences2.get(word);
+									max_word2 = word;
+								}
+							}
+
+							String classifier_result2;
+							if (max_word2.equals(W_WORD))
+								classifier_result2 = "w";
+							else if (max_word2.equals(NULL_WORD))
+								classifier_result2 = "null";
+							else
+								classifier_result2 = max_word2;
+
+							return classifier_result2;
 						}
-					}
-
-					String classifier_result2;
-					if (max_word2.equals(W_WORD))
-						classifier_result2 = "w";
-					else if (max_word2.equals(NULL_WORD))
-						classifier_result2 = "null";
-					else
-						classifier_result2 = max_word2;
-
-					o.target = classifier_result2;
+					});
 
 
 					try {
 						o.sentiment = futurePolarity.get();
 						o.agent = futureAgent.get();
+						o.target = futureTarget.get();
 					} catch (InterruptedException e) {
 						e.printStackTrace();
 						System.exit(1);
@@ -1824,6 +1840,7 @@ public class Main
 				}
 			}
 		}
+
 		threadPool.shutdown();
 		TIMER.stop();
 	}

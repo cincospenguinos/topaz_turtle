@@ -1,0 +1,80 @@
+\documentclass{article}
+%%
+%% Author: Andre LaFleur and Matthew Canova
+%% 3/14/18
+%%
+
+% Preamble
+%\documentclass[11pt]{article}
+
+% Packages
+\usepackage{a4wide}
+
+\newcommand\textbox[1]{%
+  \parbox{.4\textwidth}{#1}%
+}
+
+\title{Topaz Turtle---Final Report}
+\author{Andre LaFleur and Matthew Canova}
+
+% Document
+\begin{document}
+    \maketitle
+
+     
+       \section{Agent and Target Task Description}
+       
+       For each Opinion extracted in the gold standard, an Agent and Target were also identified. I used a multi-class classification system to identify an Agent and Target for each Opinion. Due to the nature of the data, each word token is a candidate for the agent and the target, and additionally, there are pseudo-words for the alternate responses in the gold standard (writer and implicit). 
+       
+      \subsection{Technical Approaches}
+For classification I used Liblinear and the L1-regularized logistic regression classifier. Liblinear recommends that for small datasets (which is our case) to choose an L1-regularized classifier. Additionally, because the Agent/Target classification is multi-class, I need to use Logistic Regression so that I have real-valued probabilities that can be compared. \\ 
+
+Now that I have a better understanding of the data and the classification problem, I believe that I should have split the classification problem. I should have built a single classifier to identify whether an Opinion had an Agent (or a Target, for Target classification), and then have a separate multi-class classifier that chose the appropriate Agent or Target.\\
+
+Because I did not have multi-class originally, I was labeling all candidates either as Target or not, which lent itself well to precision and recall (hence some correct looking stuff previously). Once I switched to multi-class, I made adjustments to precision and recall that I thought kept to the spirit of precision and recall, but did not. I think that the important piece that I was missing was that the decision to label is part of precision, and therefore I should not count a label like null as a labeling, since this would mean I had attempted to label everything. \\
+
+\subsection{Evaluation Results}
+
+Per Professor Riloff's recommendation, I went back and changed my algorithm to just ignore the nulls to see if my labeling could get any recall, and I was able to get the following results:\\
+
+\begin{center} 
+
+        \begin{tabular}{ | l | c | r | c}
+            \hline
+            Extraction Type & Precision & Recall & F-Score/Accuracy \\ \hline
+            Agent & .013 & .200 & .024\\ \hline
+            Target & .253 & .513 & .339\\ \hline
+        \end{tabular}
+    \end{center}
+    
+    I was extremely happy with the Target results, and was surprised that they so outshone the Agents after making those changes (in many cases it was a single word opinion where that word was the target). I was not able to update all the code to retro-actively get results for previous phases. Here are two examples from my new correct results: \\
+    
+    Agent: \\
+Sentence: Boycott unfair\\
+Opinion: unfair\\
+Agent: w\\
+Predicted Agent: w\\
+Confidences:\\
+\{\_\_W\_WORD\_\_=0.266571, unfair=0.00161524\}\\
+
+Target:\\
+Sentence: British Foreign Secretary Jack Straw said "for months the government of Zimbabwe has conducted a systematic campaign of violence and intimidation, designed to achieve an outcome -- power at all costs."\\
+Opinion: power at all costs\\
+Target: power\\
+Predicted Target: power\\
+Confidences:\\
+\{all=0.00719525, costs=0.0909056, at=0.0123959, power=0.216407\}\\
+
+
+I also used a correct F-Score where the Precision was calculated as the number of correct guesses out of how many we attempted to label, and Recall as the number of correct labels we got out of all labeled items. This correct calculation is reflected in the new numbers I mentioned above. 
+
+\subsection{Regrets}
+
+I regret not splitting up the classification task earlier. I definitely regret not going and talking to Professor Riloff or Tianyu about the Precision and Recall, once I felt I needed to adjust them. 
+\subsection{Successes}
+Previously, I feel like I have always managed to coerce all my classification problems into binary ones. This is the first time I did a true multi-class classification problem. I also think that in the very end, even my small successes are pretty nice for such a small dataset to work with. 
+ \subsection{Lessons Learned}
+I feel like I understand the goals of precision and recall now well enough that I won't mess them up again. I also know that the relationship between all your classifiers needs careful consideration and architecture in order to get the best results. 
+
+	
+\end{document}
